@@ -1,0 +1,1 @@
+import{w as s,c as n,j as o}from"./chunk-JZWAC4HX-Bc98nD6K.js";const a=s(function(){const{search:t}=n(),e=`/app/html${t}`;return o.jsx("iframe",{src:e,title:"Recip settings",style:{border:"none",width:"100%",height:"calc(100vh - 60px)"}})});export{a as default};
