@@ -1,0 +1,11 @@
+{
+  "name": "thank-you-offers",
+  "private": true,
+  "version": "1.0.0",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@shopify/ui-extensions": "~2025.10.0",
+    "preact": "^10.10.0",
+    "@preact/signals": "^2.3.0"
+  }
+}

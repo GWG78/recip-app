@@ -1,0 +1,11 @@
+api_version = "2025-10"
+
+[[extensions]]
+uid = "2944402d-8af2-71f1-6107-498d5238826b058c713c"
+type = "ui_extension"
+name = "thank-you-offers"
+handle = "thank-you-offers"
+
+[[extensions.targeting]]
+target = "purchase.thank-you.block.render"
+module = "./src/index.js"
