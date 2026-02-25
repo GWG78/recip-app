@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  </head>
+  <body>
+    <script>
+      console.log('🔥 INDEX.HTML LOADED');
+
+    const params = new URLSearchParams(window.location.search);
+    const SHOP_DOMAIN = params.get('shop');
+    const HOST = params.get('host');
+
+        console.log('🧪 shop param:', SHOP_DOMAIN);
+        console.log('🧪 host param:', HOST);
+
+        if (!SHOP_DOMAIN || !HOST) {
+        throw new Error('Missing shop or host');
+        }
+
+      const AppBridge = window['app-bridge'];
+
+      console.log('🔎 Raw AppBridge:', AppBridge);
+
+      if (!AppBridge) {
+        throw new Error('App Bridge missing');
+      }
+
+      // ✅ NORMALISE (this is the key)
+      const createApp =
+        AppBridge.createApp ||
+        AppBridge.default ||
+        AppBridge;
+
+      const Redirect = AppBridge.actions.Redirect;
+
+      if (typeof createApp !== 'function') {
+        throw new Error('createApp is not a function');
+      }
+
+      console.log('✅ App Bridge resolved');
+
+      const app = createApp({
+        apiKey: '408976a7af61fa183b5f19a4c6f11a86',
+        host: HOST,
+        forceRedirect: true,
+      });
+
+      const redirect = Redirect.create(app);
+
+      console.log('➡️ Checking install status');
+
+      fetch(`/auth/status?shop=${SHOP_DOMAIN}`)
+        .then(res => res.json())
+        .then(({ installed }) => {
+          if (!installed) {
+            console.log('🔁 App not installed, starting OAuth');
+            const installUrl = `${window.location.origin}/auth/install?shop=${SHOP_DOMAIN}`;
+            if (window.top && window.top !== window.self) {
+              window.top.location.href = installUrl;
+            } else {
+              redirect.dispatch(Redirect.Action.REMOTE, installUrl);
+            }
+          } else {
+            console.log('✅ App already installed, rendering UI');
+          }
+        });
+
+    </script>
+
+            <h2>Recip Settings</h2>
+
+        <label>
+        <input type="checkbox" id="activeToggle" />
+        Recip Active
+        </label>
+
+    <script>
+    async function loadSettings() {
+    const res = await fetch('/api/settings', {
+        headers: {
+        'X-Shopify-Shop-Domain': new URLSearchParams(location.search).get('shop')
+        }
+    });
+
+    const settings = await res.json();
+    document.getElementById('activeToggle').checked = settings.active;
+    }
+
+    document.getElementById('activeToggle').addEventListener('change', async e => {
+    await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Shop-Domain': new URLSearchParams(location.search).get('shop')
+        },
+        body: JSON.stringify({ active: e.target.checked })
+    });
+    });
+
+    loadSettings();
+    </script>
+
+    <h3>Friendly Brands</h3>
+
+<input id="brandInput" placeholder="examplebrand.co.uk" />
+<button id="addBrand">Add</button>
+<div id="brandError" style="color: red; margin-top: 6px;"></div>
+
+<ul id="brandList"></ul>
+
+<script>
+const shop = new URLSearchParams(location.search).get('shop');
+
+const input = document.getElementById('brandInput');
+const addBtn = document.getElementById('addBrand');
+const errorEl = document.getElementById('brandError');
+const list = document.getElementById('brandList');
+
+let existingBrands = [];
+
+function normaliseDomain(value) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
+}
+
+function setError(msg) {
+  errorEl.textContent = msg || '';
+}
+
+async function loadBrands() {
+  const res = await fetch('/api/friendly-brands', {
+    headers: { 'X-Shopify-Shop-Domain': shop }
+  });
+
+  existingBrands = await res.json();
+  list.innerHTML = '';
+
+  existingBrands.forEach(b => {
+    const li = document.createElement('li');
+    li.textContent = b.brandDomain + ' ';
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.onclick = async () => {
+      await fetch(`/api/friendly-brands/${b.id}`, { method: 'DELETE' });
+      loadBrands();
+    };
+
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
+}
+
+addBtn.onclick = async () => {
+  setError(null);
+
+  const raw = input.value;
+  const domain = normaliseDomain(raw);
+
+  if (!domain) {
+    return setError('Please enter a brand domain');
+  }
+
+  if (domain === shop) {
+    return setError('You cannot add your own store');
+  }
+
+  if (existingBrands.length >= 3) {
+    return setError('You can only add up to 3 friendly brands');
+  }
+
+  if (existingBrands.some(b => b.brandDomain === domain)) {
+    return setError('That brand has already been added');
+  }
+
+  addBtn.disabled = true;
+  addBtn.textContent = 'Adding…';
+
+  try {
+    const res = await fetch('/api/friendly-brands', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Shop-Domain': shop
+      },
+      body: JSON.stringify({ brandDomain: domain })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || 'Failed to add brand');
+    } else {
+      input.value = '';
+      await loadBrands();
+    }
+  } finally {
+    addBtn.disabled = false;
+    addBtn.textContent = 'Add';
+  }
+};
+
+loadBrands();
+</script>
+  </body>
+</html>
