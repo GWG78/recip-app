@@ -21,8 +21,8 @@ enum DiscountState {
 enum ReferralEventType {
   IMPRESSION
   CLICK
-  ACTIVATE
-  REDEEM
+  INSTALL
+  ORDER_CREATED
 }
 
 ///////////////////////////////////////////////////////////
@@ -97,10 +97,12 @@ model FriendlyBrand {
   shopId        String
   shop          Shop     @relation(fields: [shopId], references: [id])
 
-  targetShopId  String?
-  targetUrl     String?
+  brandDomain   String
+  resolvedShopId String?
 
   createdAt     DateTime @default(now())
+
+  @@unique([shopId, brandDomain])
 }
 
 ///////////////////////////////////////////////////////////
