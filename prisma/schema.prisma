@@ -56,17 +56,17 @@ model ShopSettings {
   shopId             String   @unique
   shop               Shop     @relation(fields: [shopId], references: [id])
 
-  discountValue      Decimal  // e.g. 0.10
-  expiryDays         Int
-  maxDiscounts       Int
+  active             Boolean  @default(true)
+  collectionGids     String[] @default([])
+
+  commissionRate     Decimal  @db.Decimal(5,4) @default(0.05)
+  discountValue      Decimal  @db.Decimal(5,4) @default(0.10)
+  expiryDays         Int      @default(2)
+  maxDiscounts       Int      @default(100)
   oneTimeUse         Boolean  @default(true)
 
-  allowedCountries   String[]
-  allowedMemberTypes String[]
-
-  collectionGids     String[]
-
-  commissionRate     Decimal  // NOT editable in merchant UI
+  allowedCountries   String[] @default([])
+  allowedMemberTypes String[] @default([])
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
