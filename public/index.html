@@ -53,25 +53,15 @@
         window['app-bridge-utils'] ||
         window.appBridgeUtils ||
         window.appBridgeUtilities;
-      const getSessionToken = AppBridgeUtils?.getSessionToken;
+      const authenticatedFetch = AppBridgeUtils?.authenticatedFetch
+        ? AppBridgeUtils.authenticatedFetch(app)
+        : null;
 
       async function fetchWithToken(url, options = {}) {
-        if (!getSessionToken) {
-          throw new Error('App Bridge utils missing');
+        if (!authenticatedFetch) {
+          throw new Error('authenticatedFetch missing');
         }
-        console.log('[fetchWithToken] requesting token');
-        const token = await Promise.race([
-          getSessionToken(app),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Session token timeout')), 5000)
-          ),
-        ]);
-        console.log('[fetchWithToken] token ok');
-        const headers = {
-          ...(options.headers || {}),
-          Authorization: `Bearer ${token}`,
-        };
-        const res = await fetch(url, { ...options, headers });
+        const res = await authenticatedFetch(url, options);
         if (!res.ok) {
           const text = await res.text();
           console.error('[fetchWithToken] error', url, res.status, text);

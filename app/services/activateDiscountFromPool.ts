@@ -1,5 +1,5 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../db.server";
-import { ReferralEventType } from "@prisma/client";
 import { trackEventTx } from "../lib/trackEvent";
 
 const EXPIRY_HOURS = 72;
@@ -18,7 +18,7 @@ export async function activateDiscountFromPool({
   const now = new Date();
   const endsAt = new Date(now.getTime() + EXPIRY_HOURS * 60 * 60 * 1000);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // 1️⃣ Take the oldest POOL code (FIFO)
     const poolCode = await tx.discountCode.findFirst({
       where: {
@@ -45,7 +45,7 @@ export async function activateDiscountFromPool({
 
     // 3️⃣ Log referral CLICK
     await trackEventTx(tx, {
-      type: ReferralEventType.CLICK,
+      type: "CLICK",
       fromShopId,
       toShopId,
       discountCodeId: activatedCode.id,

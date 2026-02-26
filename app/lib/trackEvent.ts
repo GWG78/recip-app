@@ -1,5 +1,11 @@
 import prisma from "../db.server";
-import type { Prisma, ReferralEventType } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+
+export type ReferralEventType =
+  | "IMPRESSION"
+  | "CLICK"
+  | "INSTALL"
+  | "ORDER_CREATED";
 
 /**
  * Normal (non-transactional) event tracking
