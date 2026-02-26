@@ -63,7 +63,7 @@
         }
         const res = await authenticatedFetch(url, options);
         if (!res.ok) {
-          const text = await res.text();
+          const text = await res.clone().text();
           console.error('[fetchWithToken] error', url, res.status, text);
         }
         return res;
