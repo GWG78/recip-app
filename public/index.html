@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+    <script src="https://unpkg.com/@shopify/app-bridge-utils@3"></script>
   </head>
   <body>
     <script>
@@ -48,10 +49,27 @@
       });
 
       const redirect = Redirect.create(app);
+      const AppBridgeUtils =
+        window['app-bridge-utils'] ||
+        window.appBridgeUtils ||
+        window.appBridgeUtilities;
+      const getSessionToken = AppBridgeUtils?.getSessionToken;
+
+      async function fetchWithToken(url, options = {}) {
+        if (!getSessionToken) {
+          throw new Error('App Bridge utils missing');
+        }
+        const token = await getSessionToken(app);
+        const headers = {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${token}`,
+        };
+        return fetch(url, { ...options, headers });
+      }
 
       console.log('➡️ Checking install status');
 
-      fetch(`/auth/status?shop=${SHOP_DOMAIN}`)
+      fetchWithToken(`/auth/status?shop=${SHOP_DOMAIN}`)
         .then(res => res.json())
         .then(({ installed }) => {
           if (!installed) {
@@ -78,7 +96,7 @@
 
     <script>
     async function loadSettings() {
-    const res = await fetch('/api/settings', {
+    const res = await fetchWithToken('/api/settings', {
         headers: {
         'X-Shopify-Shop-Domain': new URLSearchParams(location.search).get('shop')
         }
@@ -89,7 +107,7 @@
     }
 
     document.getElementById('activeToggle').addEventListener('change', async e => {
-    await fetch('/api/settings', {
+    await fetchWithToken('/api/settings', {
         method: 'POST',
         headers: {
         'Content-Type': 'application/json',
@@ -133,7 +151,7 @@ function setError(msg) {
 }
 
 async function loadBrands() {
-  const res = await fetch('/api/friendly-brands', {
+  const res = await fetchWithToken('/api/friendly-brands', {
     headers: { 'X-Shopify-Shop-Domain': shop }
   });
 
@@ -147,7 +165,7 @@ async function loadBrands() {
     const btn = document.createElement('button');
     btn.textContent = 'Remove';
     btn.onclick = async () => {
-      await fetch(`/api/friendly-brands/${b.id}`, { method: 'DELETE' });
+      await fetchWithToken(`/api/friendly-brands/${b.id}`, { method: 'DELETE' });
       loadBrands();
     };
 
@@ -182,7 +200,7 @@ addBtn.onclick = async () => {
   addBtn.textContent = 'Adding…';
 
   try {
-    const res = await fetch('/api/friendly-brands', {
+    const res = await fetchWithToken('/api/friendly-brands', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
