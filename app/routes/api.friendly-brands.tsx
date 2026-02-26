@@ -3,7 +3,9 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  console.log("[friendly-brands] GET", request.url);
   const { session } = await authenticate.admin(request);
+  console.log("[friendly-brands] shop", session.shop);
   const shop = await db.shop.upsert({
     where: { shopDomain: session.shop },
     update: {},
@@ -19,7 +21,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
+  console.log("[friendly-brands] POST", request.url);
   const { session } = await authenticate.admin(request);
+  console.log("[friendly-brands] shop", session.shop);
   const shop = await db.shop.upsert({
     where: { shopDomain: session.shop },
     update: {},
@@ -31,6 +35,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const body = await request.json();
+  console.log("[friendly-brands] body", body);
   const brandDomain = String(body?.brandDomain || "").trim().toLowerCase();
 
   if (!brandDomain) {
@@ -43,6 +48,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       brandDomain,
     },
   });
+  console.log("[friendly-brands] created", created.id);
 
   return Response.json(created, { status: 201 });
 };
