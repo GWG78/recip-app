@@ -64,7 +64,12 @@
           ...(options.headers || {}),
           Authorization: `Bearer ${token}`,
         };
-        return fetch(url, { ...options, headers });
+        const res = await fetch(url, { ...options, headers });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('[fetchWithToken] error', url, res.status, text);
+        }
+        return res;
       }
 
       console.log('➡️ Checking install status');
@@ -174,8 +179,8 @@ async function loadBrands() {
   });
 }
 
-addBtn.onclick = async () => {
-  setError(null);
+    addBtn.onclick = async () => {
+      setError(null);
 
   const raw = input.value;
   const domain = normaliseDomain(raw);
@@ -200,6 +205,7 @@ addBtn.onclick = async () => {
   addBtn.textContent = 'Adding…';
 
   try {
+    console.log('[friendly-brands] POST start');
     const res = await fetchWithToken('/api/friendly-brands', {
       method: 'POST',
       headers: {
@@ -209,7 +215,11 @@ addBtn.onclick = async () => {
       body: JSON.stringify({ brandDomain: domain })
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(async () => {
+      const text = await res.text();
+      console.error('[friendly-brands] non-json response', text);
+      return {};
+    });
 
     if (!res.ok) {
       setError(data.error || 'Failed to add brand');
