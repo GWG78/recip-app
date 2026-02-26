@@ -59,7 +59,14 @@
         if (!getSessionToken) {
           throw new Error('App Bridge utils missing');
         }
-        const token = await getSessionToken(app);
+        console.log('[fetchWithToken] requesting token');
+        const token = await Promise.race([
+          getSessionToken(app),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session token timeout')), 5000)
+          ),
+        ]);
+        console.log('[fetchWithToken] token ok');
         const headers = {
           ...(options.headers || {}),
           Authorization: `Bearer ${token}`,
@@ -101,14 +108,18 @@
 
     <script>
     async function loadSettings() {
-    const res = await fetchWithToken('/api/settings', {
-        headers: {
-        'X-Shopify-Shop-Domain': new URLSearchParams(location.search).get('shop')
-        }
-    });
+    try {
+      const res = await fetchWithToken('/api/settings', {
+          headers: {
+          'X-Shopify-Shop-Domain': new URLSearchParams(location.search).get('shop')
+          }
+      });
 
-    const settings = await res.json();
-    document.getElementById('activeToggle').checked = settings.active;
+      const settings = await res.json();
+      document.getElementById('activeToggle').checked = settings.active;
+    } catch (err) {
+      console.error('[settings] load error', err);
+    }
     }
 
     document.getElementById('activeToggle').addEventListener('change', async e => {
@@ -227,6 +238,9 @@ async function loadBrands() {
       input.value = '';
       await loadBrands();
     }
+  } catch (err) {
+    console.error('[friendly-brands] POST error', err);
+    setError(err.message || 'Failed to add brand');
   } finally {
     addBtn.disabled = false;
     addBtn.textContent = 'Add';
