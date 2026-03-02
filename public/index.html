@@ -216,11 +216,15 @@ async function loadBrands() {
       body: JSON.stringify({ brandDomain: domain })
     });
 
-    const data = await res.json().catch(async () => {
-      const text = await res.text();
-      console.error('[friendly-brands] non-json response', text);
-      return {};
-    });
+    const text = await res.text();
+    let data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error('[friendly-brands] non-json response', text);
+      }
+    }
 
     if (!res.ok) {
       setError(data.error || 'Failed to add brand');
