@@ -3,6 +3,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { env } from '../env.js';
 import { prisma } from '../db.js';
+import { sendInstallLead } from '../integrations/googleSheets.js';
 
 const router = Router();
 
@@ -119,6 +120,8 @@ router.get('/callback', async (req, res) => {
       installed: true,
     },
   });
+
+  await sendInstallLead({ shopDomain: shop });
 
   // 🔔 REGISTER WEBHOOKS (single, explicit place)
   await registerWebhook({
