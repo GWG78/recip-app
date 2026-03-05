@@ -25,6 +25,11 @@ enum ReferralEventType {
   ORDER_CREATED
 }
 
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
 ///////////////////////////////////////////////////////////
 // SHOP & SETTINGS
 ///////////////////////////////////////////////////////////
@@ -60,7 +65,8 @@ model ShopSettings {
   collectionGids     String[] @default([])
 
   commissionRate     Decimal  @db.Decimal(5,4) @default(0.05)
-  discountValue      Decimal  @db.Decimal(5,4) @default(0.10)
+  discountType       DiscountType @default(PERCENTAGE)
+  discountValue      Decimal  @db.Decimal(10,2) @default(10.00)
   expiryDays         Int      @default(2)
   maxDiscounts       Int      @default(100)
   oneTimeUse         Boolean  @default(true)

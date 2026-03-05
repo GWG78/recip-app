@@ -6,16 +6,20 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { sendInstallLead } from "../lib/googleSheets.server";
+import { ensureDiscountPool } from "../services/createPoolCodes";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
+  const adminClient = {
+    graphql: admin.graphql.bind(admin),
+  };
 
   const existingShop = await db.shop.findUnique({
     where: { shopDomain: session.shop },
   });
 
   if (!existingShop) {
-    await db.shop.create({
+    const createdShop = await db.shop.create({
       data: {
         shopDomain: session.shop,
         installed: true,
@@ -23,6 +27,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
     });
     await sendInstallLead({ shopDomain: session.shop });
+    await ensureDiscountPool(createdShop.id, { adminClient });
   } else if (!existingShop.installed || existingShop.uninstalledAt) {
     await db.shop.update({
       where: { id: existingShop.id },
@@ -32,6 +37,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
     });
     await sendInstallLead({ shopDomain: session.shop });
+    await ensureDiscountPool(existingShop.id, { adminClient });
   }
 
   // eslint-disable-next-line no-undef

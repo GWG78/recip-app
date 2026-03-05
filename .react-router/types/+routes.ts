@@ -20,7 +20,21 @@ type Pages = {
   "/webhooks/app/uninstalled": {
     params: {};
   };
+  "/webhooks/app_uninstalled": {
+    params: {};
+  };
   "/api/events/impression": {
+    params: {};
+  };
+  "/api/friendly-brands": {
+    params: {};
+  };
+  "/api/friendly-brands/:id": {
+    params: {
+      "id": string;
+    };
+  };
+  "/api/settings": {
     params: {};
   };
   "/auth/login": {
@@ -50,7 +64,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/api/events/impression" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/settings" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
   };
   "routes/webhooks.app.scopes_update.tsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -60,9 +74,25 @@ type RouteFiles = {
     id: "routes/webhooks.app.uninstalled";
     page: "/webhooks/app/uninstalled";
   };
+  "routes/webhooks.app_uninstalled.tsx": {
+    id: "routes/webhooks.app_uninstalled";
+    page: "/webhooks/app_uninstalled";
+  };
   "routes/api.events.impression.ts": {
     id: "routes/api.events.impression";
     page: "/api/events/impression";
+  };
+  "routes/api.friendly-brands.tsx": {
+    id: "routes/api.friendly-brands";
+    page: "/api/friendly-brands" | "/api/friendly-brands/:id";
+  };
+  "routes/api.friendly-brands.$id.tsx": {
+    id: "routes/api.friendly-brands.$id";
+    page: "/api/friendly-brands/:id";
+  };
+  "routes/api.settings.tsx": {
+    id: "routes/api.settings";
+    page: "/api/settings";
   };
   "routes/auth.login/route.tsx": {
     id: "routes/auth.login";
@@ -102,7 +132,11 @@ type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "routes/webhooks.app.scopes_update": typeof import("./app/routes/webhooks.app.scopes_update.tsx");
   "routes/webhooks.app.uninstalled": typeof import("./app/routes/webhooks.app.uninstalled.tsx");
+  "routes/webhooks.app_uninstalled": typeof import("./app/routes/webhooks.app_uninstalled.tsx");
   "routes/api.events.impression": typeof import("./app/routes/api.events.impression.ts");
+  "routes/api.friendly-brands": typeof import("./app/routes/api.friendly-brands.tsx");
+  "routes/api.friendly-brands.$id": typeof import("./app/routes/api.friendly-brands.$id.tsx");
+  "routes/api.settings": typeof import("./app/routes/api.settings.tsx");
   "routes/auth.login": typeof import("./app/routes/auth.login/route.tsx");
   "routes/r.$offerId": typeof import("./app/routes/r.$offerId.jsx");
   "routes/_index": typeof import("./app/routes/_index/route.tsx");
