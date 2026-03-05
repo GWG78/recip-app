@@ -23,6 +23,9 @@ type Pages = {
   "/webhooks/app_uninstalled": {
     params: {};
   };
+  "/webhooks/orders/create": {
+    params: {};
+  };
   "/api/events/impression": {
     params: {};
   };
@@ -64,7 +67,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/settings" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/settings" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
   };
   "routes/webhooks.app.scopes_update.tsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -77,6 +80,10 @@ type RouteFiles = {
   "routes/webhooks.app_uninstalled.tsx": {
     id: "routes/webhooks.app_uninstalled";
     page: "/webhooks/app_uninstalled";
+  };
+  "routes/webhooks.orders.create.tsx": {
+    id: "routes/webhooks.orders.create";
+    page: "/webhooks/orders/create";
   };
   "routes/api.events.impression.ts": {
     id: "routes/api.events.impression";
@@ -133,6 +140,7 @@ type RouteModules = {
   "routes/webhooks.app.scopes_update": typeof import("./app/routes/webhooks.app.scopes_update.tsx");
   "routes/webhooks.app.uninstalled": typeof import("./app/routes/webhooks.app.uninstalled.tsx");
   "routes/webhooks.app_uninstalled": typeof import("./app/routes/webhooks.app_uninstalled.tsx");
+  "routes/webhooks.orders.create": typeof import("./app/routes/webhooks.orders.create.tsx");
   "routes/api.events.impression": typeof import("./app/routes/api.events.impression.ts");
   "routes/api.friendly-brands": typeof import("./app/routes/api.friendly-brands.tsx");
   "routes/api.friendly-brands.$id": typeof import("./app/routes/api.friendly-brands.$id.tsx");
