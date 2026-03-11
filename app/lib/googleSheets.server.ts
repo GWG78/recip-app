@@ -65,3 +65,37 @@ export async function sendInstallLead(args: { shopDomain: string }) {
     console.error("❌ Install Sheets sync failed:", message);
   }
 }
+
+export async function sendReferralEventRow(args: {
+  event_id: string;
+  event_type: string;
+  timestamp: string;
+  from_shop_domain?: string | null;
+  to_shop_domain?: string | null;
+  offer_id?: string | null;
+  discount_code?: string | null;
+  discount_code_id?: string | null;
+  discount_state?: string | null;
+  order_id?: string | null;
+  order_number?: string | null;
+  order_currency?: string | null;
+  order_total?: string | null;
+  line_item_count?: number | null;
+  user_agent?: string | null;
+  referer?: string | null;
+  environment?: string | null;
+}) {
+  try {
+    await postToSheets(
+      process.env.GOOGLE_SHEETS_REFERRAL_EVENTS_URL ||
+        process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL,
+      {
+        sheetName: process.env.REFERRAL_EVENTS_SHEET_NAME || "ReferralEvents",
+        ...args,
+      },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("❌ ReferralEvents Sheets sync failed:", message);
+  }
+}

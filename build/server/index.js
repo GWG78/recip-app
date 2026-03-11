@@ -163,6 +163,72 @@ const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   __proto__: null,
   action: action$6
 }, Symbol.toStringTag, { value: "Module" }));
+function buildSheetsUrl(baseUrl, apiKey) {
+  const missing = [];
+  if (!baseUrl) missing.push("Google Sheets URL");
+  if (!apiKey) missing.push("Google Sheets API key");
+  if (missing.length) {
+    console.warn(`⚠️ Sheets sync skipped: missing ${missing.join(" and ")}`);
+    return null;
+  }
+  return `${baseUrl}?api_key=${apiKey}`;
+}
+async function postToSheets(baseUrl, payload) {
+  const endpoint = buildSheetsUrl(baseUrl, process.env.GOOGLE_SHEETS_API_KEY);
+  if (!endpoint) return false;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${response.status} ${response.statusText} - ${body}`);
+  }
+  return true;
+}
+async function sendFriendlyBrandLead(args) {
+  try {
+    await postToSheets(process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL, {
+      sheetName: process.env.FRIENDLY_BRANDS_SHEET_NAME || "FriendlyBrandLeads",
+      fromShopDomain: args.fromShopDomain,
+      fromShopName: args.fromShopName || args.fromShopDomain,
+      enteredBrandDomain: args.enteredBrandDomain
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("❌ Friendly-brand Sheets sync failed:", message);
+  }
+}
+async function sendInstallLead(args) {
+  try {
+    await postToSheets(
+      process.env.GOOGLE_SHEETS_INSTALLS_URL || process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL,
+      {
+        sheetName: process.env.INSTALLS_SHEET_NAME || "Installs",
+        shopDomain: args.shopDomain,
+        installedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("❌ Install Sheets sync failed:", message);
+  }
+}
+async function sendReferralEventRow(args) {
+  try {
+    await postToSheets(
+      process.env.GOOGLE_SHEETS_REFERRAL_EVENTS_URL || process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL,
+      {
+        sheetName: process.env.REFERRAL_EVENTS_SHEET_NAME || "ReferralEvents",
+        ...args
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("❌ ReferralEvents Sheets sync failed:", message);
+  }
+}
 function extractOrderDiscountCodes(payload) {
   var _a2, _b;
   const fromDiscountCodes = ((_a2 = payload.discount_codes) == null ? void 0 : _a2.map((d) => {
@@ -178,6 +244,7 @@ function extractOrderDiscountCodes(payload) {
 const action$5 = async ({
   request
 }) => {
+  var _a2, _b;
   const {
     payload,
     topic,
@@ -221,6 +288,47 @@ const action$5 = async ({
       orderAmount,
       lineItemCount
     }
+  });
+  const clickEvent = await prisma.referralEvent.findFirst({
+    where: {
+      discountCodeId: matched.id,
+      type: "CLICK"
+    },
+    orderBy: {
+      timestamp: "desc"
+    },
+    include: {
+      fromShop: {
+        select: {
+          shopDomain: true
+        }
+      },
+      toShop: {
+        select: {
+          shopDomain: true
+        }
+      }
+    }
+  });
+  const meta = (clickEvent == null ? void 0 : clickEvent.meta) ?? null;
+  await sendReferralEventRow({
+    event_id: `${matched.id}:${orderId ?? Date.now().toString()}`,
+    event_type: "ORDER_CREATED",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    from_shop_domain: ((_a2 = clickEvent == null ? void 0 : clickEvent.fromShop) == null ? void 0 : _a2.shopDomain) ?? null,
+    to_shop_domain: ((_b = clickEvent == null ? void 0 : clickEvent.toShop) == null ? void 0 : _b.shopDomain) ?? shop,
+    offer_id: (meta == null ? void 0 : meta.offerId) ?? null,
+    discount_code: matched.code,
+    discount_code_id: matched.id,
+    discount_state: "REDEEMED",
+    order_id: orderId,
+    order_number: order.order_number ? String(order.order_number) : null,
+    order_currency: order.currency || order.presentment_currency || null,
+    order_total: orderAmount,
+    line_item_count: lineItemCount,
+    user_agent: request.headers.get("user-agent"),
+    referer: request.headers.get("referer"),
+    environment: process.env.NODE_ENV || null
   });
   console.log(`[orders/create] marked REDEEMED code=${matched.code} shop=${shop} orderId=${orderId ?? "-"}`);
   return new Response();
@@ -295,58 +403,6 @@ const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   __proto__: null,
   action: action$4
 }, Symbol.toStringTag, { value: "Module" }));
-function buildSheetsUrl(baseUrl, apiKey) {
-  const missing = [];
-  if (!baseUrl) missing.push("Google Sheets URL");
-  if (!apiKey) missing.push("Google Sheets API key");
-  if (missing.length) {
-    console.warn(`⚠️ Sheets sync skipped: missing ${missing.join(" and ")}`);
-    return null;
-  }
-  return `${baseUrl}?api_key=${apiKey}`;
-}
-async function postToSheets(baseUrl, payload) {
-  const endpoint = buildSheetsUrl(baseUrl, process.env.GOOGLE_SHEETS_API_KEY);
-  if (!endpoint) return false;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`${response.status} ${response.statusText} - ${body}`);
-  }
-  return true;
-}
-async function sendFriendlyBrandLead(args) {
-  try {
-    await postToSheets(process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL, {
-      sheetName: process.env.FRIENDLY_BRANDS_SHEET_NAME || "FriendlyBrandLeads",
-      fromShopDomain: args.fromShopDomain,
-      fromShopName: args.fromShopName || args.fromShopDomain,
-      enteredBrandDomain: args.enteredBrandDomain
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("❌ Friendly-brand Sheets sync failed:", message);
-  }
-}
-async function sendInstallLead(args) {
-  try {
-    await postToSheets(
-      process.env.GOOGLE_SHEETS_INSTALLS_URL || process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL,
-      {
-        sheetName: process.env.INSTALLS_SHEET_NAME || "Installs",
-        shopDomain: args.shopDomain,
-        installedAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("❌ Install Sheets sync failed:", message);
-  }
-}
 const loader$8 = async ({
   request
 }) => {
