@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { sendReferralEventRow } from "../lib/googleSheets.server";
+import { ensureDiscountPool } from "../services/createPoolCodes";
 
 type OrdersCreatePayload = {
   id?: string | number;
@@ -30,7 +31,7 @@ function extractOrderDiscountCodes(payload: OrdersCreatePayload): string[] {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { payload, topic, shop } = await authenticate.webhook(request);
+  const { payload, topic, shop, admin } = await authenticate.webhook(request);
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
@@ -109,6 +110,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   console.log(
     `[orders/create] marked REDEEMED code=${matched.code} shop=${shop} orderId=${orderId ?? "-"}`,
   );
+
+  try {
+    await ensureDiscountPool(matched.toShopId, {
+      adminClient: admin
+        ? {
+            graphql: admin.graphql.bind(admin),
+          }
+        : undefined,
+    });
+    console.log(`[orders/create] pool ensure triggered for toShopId=${matched.toShopId}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[orders/create] pool ensure failed for toShopId=${matched.toShopId}: ${message}`,
+    );
+  }
 
   return new Response();
 };
