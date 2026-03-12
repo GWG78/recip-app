@@ -40,6 +40,9 @@ type Pages = {
   "/api/settings": {
     params: {};
   };
+  "/api/offers": {
+    params: {};
+  };
   "/auth/login": {
     params: {};
   };
@@ -67,7 +70,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/settings" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
   };
   "routes/webhooks.app.scopes_update.tsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -100,6 +103,10 @@ type RouteFiles = {
   "routes/api.settings.tsx": {
     id: "routes/api.settings";
     page: "/api/settings";
+  };
+  "routes/api.offers.ts": {
+    id: "routes/api.offers";
+    page: "/api/offers";
   };
   "routes/auth.login/route.tsx": {
     id: "routes/auth.login";
@@ -145,6 +152,7 @@ type RouteModules = {
   "routes/api.friendly-brands": typeof import("./app/routes/api.friendly-brands.tsx");
   "routes/api.friendly-brands.$id": typeof import("./app/routes/api.friendly-brands.$id.tsx");
   "routes/api.settings": typeof import("./app/routes/api.settings.tsx");
+  "routes/api.offers": typeof import("./app/routes/api.offers.ts");
   "routes/auth.login": typeof import("./app/routes/auth.login/route.tsx");
   "routes/r.$offerId": typeof import("./app/routes/r.$offerId.jsx");
   "routes/_index": typeof import("./app/routes/_index/route.tsx");

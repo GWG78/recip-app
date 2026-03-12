@@ -1,12 +1,13 @@
 import '@shopify/ui-extensions/preact';
 import { h, render } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 
-const APP_BASE_URL = "https://sleep-change-apparent-divx.trycloudflare.com";
+const APP_BASE_URL = "https://recip-app-5alg.onrender.com";
 
 
-async function trackImpression({ offerId, orderId }) {
+async function trackImpression({ offerId, orderId, fromShopId, toShopId }) {
   try {
-    await fetch("/api/events/impression", {
+    await fetch(`${APP_BASE_URL}/api/events/impression`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -14,7 +15,8 @@ async function trackImpression({ offerId, orderId }) {
       body: JSON.stringify({
         offerId,
         orderId,
-        toShopId: "DESTINATION_SHOP_ID",
+        fromShopId,
+        toShopId,
       }),
     });
   } catch (err) {
@@ -22,13 +24,28 @@ async function trackImpression({ offerId, orderId }) {
   }
 }
 
-function OfferCard({ offerId, brand, description, offer, orderId }) {
-  const offerUrl = orderId
-    ? `${APP_BASE_URL}/r/${offerId}?orderId=${encodeURIComponent(orderId)}`
-    : `${APP_BASE_URL}/r/${offerId}`;
+function OfferCard({
+  offerId,
+  brand,
+  description,
+  offer,
+  orderId,
+  fromShopDomain,
+  fromShopId,
+  toShopDomain,
+  toShopId,
+}) {
+  const query = new URLSearchParams();
+  if (orderId) query.set("orderId", orderId);
+  if (toShopDomain) query.set("toShopDomain", toShopDomain);
+  if (fromShopDomain) query.set("fromShopDomain", fromShopDomain);
 
-    if (orderId) {
-    trackImpression({ offerId, orderId });
+  const offerUrl = orderId
+    ? `${APP_BASE_URL}/r/${offerId}?${query.toString()}`
+    : `${APP_BASE_URL}/r/${offerId}?${query.toString()}`;
+
+  if (orderId && toShopId) {
+    trackImpression({ offerId, orderId, fromShopId, toShopId });
   }
 
   return h(
@@ -89,6 +106,30 @@ export default function renderThankYouOffers() {
     typeof shopify !== 'undefined' && shopify.order
       ? shopify.order.id
       : null;
+  const fromShopDomain = globalThis.location?.hostname || null;
+
+  const [offersState, setOffersState] = useState([]);
+  const [sourceShopId, setSourceShopId] = useState(null);
+
+  useEffect(() => {
+    async function loadOffers() {
+      if (!fromShopDomain) return;
+
+      try {
+        const res = await fetch(
+          `${APP_BASE_URL}/api/offers?shop=${encodeURIComponent(fromShopDomain)}`,
+        );
+        const data = await res.json();
+        setOffersState(Array.isArray(data.offers) ? data.offers : []);
+        setSourceShopId(data.sourceShopId || null);
+      } catch (err) {
+        console.warn("Failed to load offers", err);
+        setOffersState([]);
+      }
+    }
+
+    loadOffers();
+  }, [fromShopDomain]);
 
   const App = () =>
     h(
@@ -105,34 +146,20 @@ export default function renderThankYouOffers() {
           gap: 'base',
           gridTemplateColumns: '1fr 1fr',
         },
-        h(OfferCard, {
-          offerId: 'offer_1',
-          brand: 'Brand One',
-          description: 'Premium cycling apparel',
-          offer: '🎁 15% off your first order',
-          orderId,
-        }),
-        h(OfferCard, {
-          offerId: 'offer_2',
-          brand: 'Brand Two',
-          description: 'Recovery & wellness gear',
-          offer: '£10 off when you spend £50',
-          orderId,
-        }),
-        h(OfferCard, {
-          offerId: 'offer_3',
-          brand: 'Brand Three',
-          description: 'Supplements for endurance',
-          offer: '🎁 20% off sitewide',
-          orderId,
-        }),
-        h(OfferCard, {
-          offerId: 'offer_4',
-          brand: 'Brand Four',
-          description: 'Performance accessories',
-          offer: '£5 off your next purchase',
-          orderId,
-        })
+        offersState.map((offerItem) =>
+          h(OfferCard, {
+            key: offerItem.offerId,
+            offerId: offerItem.offerId,
+            brand: offerItem.brand,
+            description: offerItem.description,
+            offer: offerItem.offer,
+            orderId,
+            fromShopDomain,
+            fromShopId: sourceShopId,
+            toShopDomain: offerItem.toShopDomain,
+            toShopId: offerItem.toShopId,
+          }),
+        )
       )
     );
 

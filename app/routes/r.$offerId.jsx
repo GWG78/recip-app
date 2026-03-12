@@ -1,5 +1,6 @@
 import { useLoaderData } from "react-router";
 import { activateDiscountFromPool } from "../services/activateDiscountFromPool";
+import db from "../db.server";
 
 /**
  * LOADER
@@ -14,19 +15,39 @@ export async function loader({ params, request }) {
   }
   const url = new URL(request.url);
   const orderId = url.searchParams.get("orderId");
+  const toShopDomain = url.searchParams.get("toShopDomain");
+  const fromShopDomain = url.searchParams.get("fromShopDomain");
 
-  const toShopId = "DESTINATION_SHOP_ID"; // unchanged
-  const shopDomain = `${toShopId}.myshopify.com`;
+  if (!toShopDomain) {
+    throw new Response("Missing destination shop", { status: 400 });
+  }
+
+  const toShop = await db.shop.findUnique({
+    where: { shopDomain: toShopDomain },
+    select: { id: true, shopDomain: true },
+  });
+
+  if (!toShop) {
+    throw new Response("Destination shop not found", { status: 404 });
+  }
+
+  const fromShop = fromShopDomain
+    ? await db.shop.findUnique({
+        where: { shopDomain: fromShopDomain },
+        select: { id: true },
+      })
+    : null;
 
   const discount = await activateDiscountFromPool({
-    toShopId,
+    toShopId: toShop.id,
+    fromShopId: fromShop?.id,
     offerId,
     orderId,
   });
 
   return Response.json({
     code: discount.code,
-    shopUrl: `https://${shopDomain}/discount/${discount.code}`,
+    shopUrl: `https://${toShop.shopDomain}/discount/${discount.code}`,
   });
 }
 
