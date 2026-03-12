@@ -4,6 +4,14 @@ import { useEffect, useState } from 'preact/hooks';
 
 const APP_BASE_URL = "https://recip-app-5alg.onrender.com";
 
+function readSignal(value) {
+  if (value && typeof value === 'object') {
+    if ('value' in value) return value.value;
+    if ('current' in value) return value.current;
+  }
+  return value;
+}
+
 
 async function trackImpression({ offerId, orderId, fromShopId, toShopId }) {
   try {
@@ -102,24 +110,23 @@ function OfferCard({
 }
 
 function App() {
-  const orderId =
-    typeof shopify !== 'undefined' && shopify.order
-      ? shopify.order.id
-      : null;
+  const orderApi = typeof shopify !== 'undefined' ? readSignal(shopify.order) : null;
+  const orderId = orderApi?.id ? String(orderApi.id) : null;
+  const shopApi = typeof shopify !== 'undefined' ? readSignal(shopify.shop) : null;
   const fromShopDomain =
-    (typeof shopify !== 'undefined' && shopify.shop && shopify.shop.myshopifyDomain)
-      ? shopify.shop.myshopifyDomain
+    (shopApi && shopApi.myshopifyDomain)
+      ? shopApi.myshopifyDomain
       : globalThis.location?.hostname || null;
   const [offersState, setOffersState] = useState([]);
   const [sourceShopId, setSourceShopId] = useState(null);
 
   useEffect(() => {
     async function loadOffers() {
-      if (!fromShopDomain) return;
+      const requestedShop = fromShopDomain || '';
 
       try {
         const res = await fetch(
-          `${APP_BASE_URL}/api/offers?shop=${encodeURIComponent(fromShopDomain)}`,
+          `${APP_BASE_URL}/api/offers?shop=${encodeURIComponent(requestedShop)}`,
         );
         const data = await res.json();
         setOffersState(Array.isArray(data.offers) ? data.offers : []);
