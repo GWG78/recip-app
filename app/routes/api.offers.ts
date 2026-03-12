@@ -25,17 +25,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const sourceDomain = normalizeDomain(rawShop);
+  console.log(`[offers] request shop=${sourceDomain}`);
   const sourceShop = await db.shop.findUnique({
     where: { shopDomain: sourceDomain },
     include: { friendly: true },
   });
 
   if (!sourceShop) {
+    console.log(`[offers] source shop not found for ${sourceDomain}`);
     return Response.json({ sourceShopId: null, offers: [] });
   }
 
   const domains = sourceShop.friendly.map((b) => b.brandDomain);
   if (!domains.length) {
+    console.log(`[offers] no friendly brands for ${sourceDomain}`);
     return Response.json({ sourceShopId: sourceShop.id, offers: [] });
   }
 
@@ -71,6 +74,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       discountValue,
     };
   });
+
+  console.log(
+    `[offers] source=${sourceDomain} friendly=${domains.length} matched=${offers.length}`,
+  );
 
   return Response.json({ sourceShopId: sourceShop.id, offers });
 };

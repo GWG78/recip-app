@@ -877,6 +877,7 @@ const loader$7 = async ({
     });
   }
   const sourceDomain = normalizeDomain(rawShop);
+  console.log(`[offers] request shop=${sourceDomain}`);
   const sourceShop = await prisma.shop.findUnique({
     where: {
       shopDomain: sourceDomain
@@ -886,6 +887,7 @@ const loader$7 = async ({
     }
   });
   if (!sourceShop) {
+    console.log(`[offers] source shop not found for ${sourceDomain}`);
     return Response.json({
       sourceShopId: null,
       offers: []
@@ -893,6 +895,7 @@ const loader$7 = async ({
   }
   const domains = sourceShop.friendly.map((b) => b.brandDomain);
   if (!domains.length) {
+    console.log(`[offers] no friendly brands for ${sourceDomain}`);
     return Response.json({
       sourceShopId: sourceShop.id,
       offers: []
@@ -931,6 +934,7 @@ const loader$7 = async ({
       discountValue
     };
   });
+  console.log(`[offers] source=${sourceDomain} friendly=${domains.length} matched=${offers.length}`);
   return Response.json({
     sourceShopId: sourceShop.id,
     offers

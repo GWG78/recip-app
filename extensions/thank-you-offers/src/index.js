@@ -106,7 +106,10 @@ export default function renderThankYouOffers() {
     typeof shopify !== 'undefined' && shopify.order
       ? shopify.order.id
       : null;
-  const fromShopDomain = globalThis.location?.hostname || null;
+  const fromShopDomain =
+    (typeof shopify !== 'undefined' && shopify.shop && shopify.shop.myshopifyDomain)
+      ? shopify.shop.myshopifyDomain
+      : globalThis.location?.hostname || null;
 
   const [offersState, setOffersState] = useState([]);
   const [sourceShopId, setSourceShopId] = useState(null);
@@ -138,6 +141,10 @@ export default function renderThankYouOffers() {
 
       // Header
       h('s-text', { emphasis: true }, '🎉 Recommended for you'),
+
+      offersState.length === 0
+        ? h('s-text', { appearance: 'subdued' }, 'No partner offers available yet')
+        : null,
 
       // 2x2 grid
       h(
