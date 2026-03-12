@@ -13,6 +13,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const adminClient = {
     graphql: admin.graphql.bind(admin),
   };
+  const sessionAccessToken =
+    (session as unknown as { accessToken?: string | null }).accessToken ?? null;
+  const sessionScope = (session as unknown as { scope?: string | null }).scope ?? null;
 
   const existingShop = await db.shop.findUnique({
     where: { shopDomain: session.shop },
@@ -24,20 +27,31 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         shopDomain: session.shop,
         installed: true,
         uninstalledAt: null,
+        accessToken: sessionAccessToken,
+        scope: sessionScope,
       },
     });
     await sendInstallLead({ shopDomain: session.shop });
     await ensureDiscountPool(createdShop.id, { adminClient });
-  } else if (!existingShop.installed || existingShop.uninstalledAt) {
+  } else {
     await db.shop.update({
       where: { id: existingShop.id },
       data: {
-        installed: true,
-        uninstalledAt: null,
+        ...(sessionAccessToken ? { accessToken: sessionAccessToken } : {}),
+        ...(sessionScope ? { scope: sessionScope } : {}),
+        ...(!existingShop.installed || existingShop.uninstalledAt
+          ? {
+              installed: true,
+              uninstalledAt: null,
+            }
+          : {}),
       },
     });
-    await sendInstallLead({ shopDomain: session.shop });
-    await ensureDiscountPool(existingShop.id, { adminClient });
+
+    if (!existingShop.installed || existingShop.uninstalledAt) {
+      await sendInstallLead({ shopDomain: session.shop });
+      await ensureDiscountPool(existingShop.id, { adminClient });
+    }
   }
 
   // eslint-disable-next-line no-undef

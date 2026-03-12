@@ -978,7 +978,10 @@ async function activateDiscountFromPool({
     return activatedCode2;
   });
   try {
-    await ensureDiscountPool(toShopId, { adminClient });
+    const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
+    console.log(
+      `[pool] replenish after click toShopId=${toShopId} created=${replenishResult.created} poolSize=${replenishResult.poolSize}`
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[pool] replenish after activation failed toShopId=${toShopId}: ${message}`);
@@ -1179,6 +1182,8 @@ const loader$2 = async ({
   const adminClient = {
     graphql: admin.graphql.bind(admin)
   };
+  const sessionAccessToken = session.accessToken ?? null;
+  const sessionScope = session.scope ?? null;
   const existingShop = await prisma.shop.findUnique({
     where: {
       shopDomain: session.shop
@@ -1189,7 +1194,9 @@ const loader$2 = async ({
       data: {
         shopDomain: session.shop,
         installed: true,
-        uninstalledAt: null
+        uninstalledAt: null,
+        accessToken: sessionAccessToken,
+        scope: sessionScope
       }
     });
     await sendInstallLead({
@@ -1198,22 +1205,32 @@ const loader$2 = async ({
     await ensureDiscountPool(createdShop.id, {
       adminClient
     });
-  } else if (!existingShop.installed || existingShop.uninstalledAt) {
+  } else {
     await prisma.shop.update({
       where: {
         id: existingShop.id
       },
       data: {
-        installed: true,
-        uninstalledAt: null
+        ...sessionAccessToken ? {
+          accessToken: sessionAccessToken
+        } : {},
+        ...sessionScope ? {
+          scope: sessionScope
+        } : {},
+        ...!existingShop.installed || existingShop.uninstalledAt ? {
+          installed: true,
+          uninstalledAt: null
+        } : {}
       }
     });
-    await sendInstallLead({
-      shopDomain: session.shop
-    });
-    await ensureDiscountPool(existingShop.id, {
-      adminClient
-    });
+    if (!existingShop.installed || existingShop.uninstalledAt) {
+      await sendInstallLead({
+        shopDomain: session.shop
+      });
+      await ensureDiscountPool(existingShop.id, {
+        adminClient
+      });
+    }
   }
   return {
     apiKey: process.env.SHOPIFY_API_KEY || ""

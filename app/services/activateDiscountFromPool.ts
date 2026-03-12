@@ -74,7 +74,10 @@ export async function activateDiscountFromPool({
 
   // 3️⃣ Replenish pool outside transaction (includes Shopify Admin API call)
   try {
-    await ensureDiscountPool(toShopId, { adminClient });
+    const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
+    console.log(
+      `[pool] replenish after click toShopId=${toShopId} created=${replenishResult.created} poolSize=${replenishResult.poolSize}`,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[pool] replenish after activation failed toShopId=${toShopId}: ${message}`);
