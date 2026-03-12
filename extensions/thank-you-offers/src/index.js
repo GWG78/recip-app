@@ -101,7 +101,7 @@ function OfferCard({
   );
 }
 
-export default function renderThankYouOffers() {
+function App() {
   const orderId =
     typeof shopify !== 'undefined' && shopify.order
       ? shopify.order.id
@@ -110,7 +110,6 @@ export default function renderThankYouOffers() {
     (typeof shopify !== 'undefined' && shopify.shop && shopify.shop.myshopifyDomain)
       ? shopify.shop.myshopifyDomain
       : globalThis.location?.hostname || null;
-
   const [offersState, setOffersState] = useState([]);
   const [sourceShopId, setSourceShopId] = useState(null);
 
@@ -134,41 +133,42 @@ export default function renderThankYouOffers() {
     loadOffers();
   }, [fromShopDomain]);
 
-  const App = () =>
+  return h(
+    's-stack',
+    { gap: 'base' },
+
+    // Header
+    h('s-text', { emphasis: true }, '🎉 Recommended for you'),
+
+    offersState.length === 0
+      ? h('s-text', { appearance: 'subdued' }, 'No partner offers available yet')
+      : null,
+
+    // 2x2 grid
     h(
-      's-stack',
-      { gap: 'base' },
-
-      // Header
-      h('s-text', { emphasis: true }, '🎉 Recommended for you'),
-
-      offersState.length === 0
-        ? h('s-text', { appearance: 'subdued' }, 'No partner offers available yet')
-        : null,
-
-      // 2x2 grid
-      h(
-        's-grid',
-        {
-          gap: 'base',
-          gridTemplateColumns: '1fr 1fr',
-        },
-        offersState.map((offerItem) =>
-          h(OfferCard, {
-            key: offerItem.offerId,
-            offerId: offerItem.offerId,
-            brand: offerItem.brand,
-            description: offerItem.description,
-            offer: offerItem.offer,
-            orderId,
-            fromShopDomain,
-            fromShopId: sourceShopId,
-            toShopDomain: offerItem.toShopDomain,
-            toShopId: offerItem.toShopId,
-          }),
-        )
+      's-grid',
+      {
+        gap: 'base',
+        gridTemplateColumns: '1fr 1fr',
+      },
+      offersState.map((offerItem) =>
+        h(OfferCard, {
+          key: offerItem.offerId,
+          offerId: offerItem.offerId,
+          brand: offerItem.brand,
+          description: offerItem.description,
+          offer: offerItem.offer,
+          orderId,
+          fromShopDomain,
+          fromShopId: sourceShopId,
+          toShopDomain: offerItem.toShopDomain,
+          toShopId: offerItem.toShopId,
+        }),
       )
-    );
+    )
+  );
+}
 
+export default function renderThankYouOffers() {
   render(h(App), document.body);
 }
