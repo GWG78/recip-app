@@ -117,18 +117,21 @@ function App() {
     (shopApi && shopApi.myshopifyDomain)
       ? shopApi.myshopifyDomain
       : globalThis.location?.hostname || null;
+  console.log('[thank-you-offers] fromShopDomain:', fromShopDomain, 'shopApi:', shopApi, 'location.hostname:', globalThis.location?.hostname);
   const [offersState, setOffersState] = useState([]);
   const [sourceShopId, setSourceShopId] = useState(null);
 
   useEffect(() => {
     async function loadOffers() {
       const requestedShop = fromShopDomain || '';
+      console.log('[thank-you-offers] loadOffers requestedShop:', requestedShop);
 
       try {
         const res = await fetch(
           `${APP_BASE_URL}/api/offers?shop=${encodeURIComponent(requestedShop)}`,
         );
         const data = await res.json();
+        console.log('[thank-you-offers] offers response:', data);
         setOffersState(Array.isArray(data.offers) ? data.offers : []);
         setSourceShopId(data.sourceShopId || null);
       } catch (err) {

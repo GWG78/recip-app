@@ -59,6 +59,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     take: 4,
   });
 
+  console.log(`[offers] destinationShops found: ${destinationShops.length}`);
+  destinationShops.forEach(shop => {
+    console.log(`[offers] dest shop: ${shop.shopDomain}, installed: ${shop.installed}, active: ${shop.active}`);
+  });
+
   const offers = destinationShops.map((shop) => {
     const discountType = shop.settings?.discountType ?? "PERCENTAGE";
     const discountValue = Number(shop.settings?.discountValue ?? 10);
