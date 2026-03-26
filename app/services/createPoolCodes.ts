@@ -112,10 +112,12 @@ async function createShopifyDiscountCode(args: {
   code: string;
   discountKind: DiscountKind;
   discountValue: number;
-  expiryHours: number;
+  expiryHours?: number;
 }): Promise<ShopifyCreateResult> {
   const startsAt = new Date();
-  const endsAt = new Date(startsAt.getTime() + args.expiryHours * 60 * 60 * 1000);
+  // For pool codes, use 1 year expiry; for immediate use, use provided expiry
+  const defaultExpiryHours = args.expiryHours ?? (365 * 24); // 1 year
+  const endsAt = new Date(startsAt.getTime() + defaultExpiryHours * 60 * 60 * 1000);
 
   const variables = {
     basicCodeDiscount: {
@@ -227,7 +229,7 @@ export async function ensureDiscountPool(toShopId: string, options: EnsurePoolOp
         code,
         discountKind,
         discountValue,
-        expiryHours,
+        // Don't pass expiryHours for pool codes - they should last indefinitely
       });
 
       await prisma.discountCode.create({

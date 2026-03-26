@@ -83,11 +83,17 @@ export async function activateDiscountFromPool({
 }) {
   // Make sure at least one POOL code exists before trying to activate (only if we have admin access)
   if (adminClient) {
-    await ensureDiscountPool(toShopId, { adminClient });
+    try {
+      await ensureDiscountPool(toShopId, { adminClient });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[pool] failed to ensure pool for toShopId=${toShopId}: ${message}`);
+      // Continue anyway - maybe there are existing POOL codes
+    }
   }
 
   const now = new Date();
-  const endsAt = new Date(now.getTime() + expiryHours * 60 * 60 * 1000);
+  const endsAt = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000); // 5 days
 
   const activatedCode = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // 1️⃣ Take the oldest POOL code (FIFO)
