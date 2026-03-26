@@ -15,7 +15,12 @@ function buildSheetsUrl(baseUrl: string | undefined, apiKey: string | undefined)
 
 async function postToSheets(baseUrl: string | undefined, payload: SheetsPayload) {
   const endpoint = buildSheetsUrl(baseUrl, process.env.GOOGLE_SHEETS_API_KEY);
-  if (!endpoint) return false;
+  if (!endpoint) {
+    console.warn("Sheets sync skipped: endpoint missing");
+    return false;
+  }
+
+  console.log("[Sheets] POST", { endpoint, payload });
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -25,9 +30,11 @@ async function postToSheets(baseUrl: string | undefined, payload: SheetsPayload)
 
   if (!response.ok) {
     const body = await response.text();
+    console.error("[Sheets] POST failed", { endpoint, status: response.status, statusText: response.statusText, body });
     throw new Error(`${response.status} ${response.statusText} - ${body}`);
   }
 
+  console.log("[Sheets] POST success", { endpoint, status: response.status });
   return true;
 }
 
