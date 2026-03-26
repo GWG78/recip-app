@@ -4,12 +4,67 @@ import { trackEventTx } from "../lib/trackEvent";
 import { ensureDiscountPool } from "./createPoolCodes";
 
 const EXPIRY_HOURS = 72;
+const UPDATE_DISCOUNT_MUTATION = `
+mutation discountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
+  discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
+    codeDiscountNode {
+      id
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`;
 type AdminGraphqlClient = {
   graphql: (
     query: string,
     options?: { variables?: Record<string, unknown> },
   ) => Promise<Response>;
 };
+
+async function updateShopifyDiscount(
+  adminClient: AdminGraphqlClient,
+  discountGid: string,
+  startsAt: Date,
+  endsAt: Date,
+) {
+  const response = await adminClient.graphql(UPDATE_DISCOUNT_MUTATION, {
+    variables: {
+      id: discountGid,
+      basicCodeDiscount: {
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+      },
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Shopify API HTTP ${response.status}: ${body}`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: {
+      discountCodeBasicUpdate?: {
+        userErrors?: Array<{ message?: string | null }> | null;
+      };
+    };
+    errors?: Array<{ message?: string }>;
+  };
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors.map((e) => e.message).join("; "));
+  }
+
+  const result = payload.data?.discountCodeBasicUpdate;
+  const userErrors = result?.userErrors ?? [];
+  if (userErrors.length) {
+    throw new Error(userErrors.map((e) => e.message).filter(Boolean).join("; "));
+  }
+}
 
 export async function activateDiscountFromPool({
   fromShopId,
@@ -72,7 +127,24 @@ export async function activateDiscountFromPool({
     return activatedCode;
   });
 
-  // 3️⃣ Replenish pool outside transaction (includes Shopify Admin API call)
+  // 4️⃣ Update Shopify discount timing
+  if (activatedCode.shopifyDiscountGid && adminClient) {
+    try {
+      await updateShopifyDiscount(
+        adminClient,
+        activatedCode.shopifyDiscountGid,
+        activatedCode.startsAt,
+        activatedCode.endsAt,
+      );
+      console.log(`[activation] updated Shopify discount ${activatedCode.code}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[activation] failed to update Shopify discount ${activatedCode.code}: ${message}`);
+      // Continue anyway - DB is updated, user can still use the code
+    }
+  }
+
+  // 5️⃣ Replenish pool outside transaction (includes Shopify Admin API call)
   try {
     const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
     console.log(
