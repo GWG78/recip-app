@@ -81,8 +81,10 @@ export async function activateDiscountFromPool({
   expiryHours?: number;
   adminClient?: AdminGraphqlClient;
 }) {
-  // Make sure at least one POOL code exists before trying to activate.
-  await ensureDiscountPool(toShopId, { adminClient });
+  // Make sure at least one POOL code exists before trying to activate (only if we have admin access)
+  if (adminClient) {
+    await ensureDiscountPool(toShopId, { adminClient });
+  }
 
   const now = new Date();
   const endsAt = new Date(now.getTime() + expiryHours * 60 * 60 * 1000);
