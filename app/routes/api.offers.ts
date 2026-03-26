@@ -17,11 +17,29 @@ function buildOfferText(discountType: "PERCENTAGE" | "FIXED", discountValue: num
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  // Handle CORS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }
+
   const url = new URL(request.url);
   const rawShop = url.searchParams.get("shop");
 
   if (!rawShop) {
-    return Response.json({ error: "Missing shop parameter" }, { status: 400 });
+    return Response.json({ error: "Missing shop parameter" }, { 
+      status: 400,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
   }
 
   const sourceDomain = normalizeDomain(rawShop);
@@ -33,13 +51,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   if (!sourceShop) {
     console.log(`[offers] source shop not found for ${sourceDomain}`);
-    return Response.json({ sourceShopId: null, offers: [] });
+    return Response.json({ sourceShopId: null, offers: [] }, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
   }
 
   const domains = sourceShop.friendly.map((b) => b.brandDomain);
   if (!domains.length) {
     console.log(`[offers] no friendly brands for ${sourceDomain}`);
-    return Response.json({ sourceShopId: sourceShop.id, offers: [] });
+    return Response.json({ sourceShopId: sourceShop.id, offers: [] }, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
   }
 
   const destinationShops = await db.shop.findMany({
@@ -84,5 +114,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     `[offers] source=${sourceDomain} friendly=${domains.length} matched=${offers.length}`,
   );
 
-  return Response.json({ sourceShopId: sourceShop.id, offers });
+  return Response.json({ sourceShopId: sourceShop.id, offers }, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
 };
