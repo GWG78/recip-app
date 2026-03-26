@@ -68,7 +68,7 @@ function buildValueInput(discountKind: DiscountKind, discountValue: number) {
   return { percentage: discountValue / 100 };
 }
 
-async function resolveAdminClient(
+export async function resolveAdminClient(
   toShopId: string,
   injectedClient?: AdminGraphqlClient,
 ): Promise<AdminGraphqlClient> {
