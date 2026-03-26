@@ -45,6 +45,6 @@ export async function loader({ params, request }) {
   });
 
   // Redirect directly to Shopify with auto-applied discount
-  const redirectUrl = `https://${toShop.shopDomain}/discount/${discount.code}?redirect=/checkout`;
+  const redirectUrl = `https://${toShop.shopDomain}/discount/${discount.code}?redirect=/`;
   return Response.redirect(redirectUrl);
 }
