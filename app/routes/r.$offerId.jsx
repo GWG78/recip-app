@@ -1,4 +1,5 @@
 import { activateDiscountFromPool } from "../services/activateDiscountFromPool";
+import { resolveAdminClient } from "../services/createPoolCodes";
 import db from "../db.server";
 
 /**
@@ -37,11 +38,20 @@ export async function loader({ params, request }) {
       })
     : null;
 
+  // Try to get admin client for destination shop (for Shopify updates)
+  let adminClient;
+  try {
+    adminClient = await resolveAdminClient(toShop.id);
+  } catch (error) {
+    console.log(`[r/${offerId}] no admin access for destination shop ${toShopDomain}, skipping Shopify updates`);
+  }
+
   const discount = await activateDiscountFromPool({
     toShopId: toShop.id,
     fromShopId: fromShop?.id,
     offerId,
     orderId,
+    adminClient,
   });
 
   // Redirect directly to Shopify with auto-applied discount

@@ -127,8 +127,8 @@ export async function activateDiscountFromPool({
     return activatedCode;
   });
 
-  // 4️⃣ Update Shopify discount timing
-  if (activatedCode.shopifyDiscountGid && adminClient) {
+  // 4️⃣ Update Shopify discount timing (skip if no admin access)
+  if (adminClient) {
     try {
       await updateShopifyDiscount(
         adminClient,
@@ -142,17 +142,23 @@ export async function activateDiscountFromPool({
       console.error(`[activation] failed to update Shopify discount ${activatedCode.code}: ${message}`);
       // Continue anyway - DB is updated, user can still use the code
     }
+  } else {
+    console.log(`[activation] skipping Shopify update for ${activatedCode.code} (no admin access)`);
   }
 
-  // 5️⃣ Replenish pool outside transaction (includes Shopify Admin API call)
-  try {
-    const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
-    console.log(
-      `[pool] replenish after click toShopId=${toShopId} created=${replenishResult.created} poolSize=${replenishResult.poolSize}`,
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[pool] replenish after activation failed toShopId=${toShopId}: ${message}`);
+  // 5️⃣ Replenish pool (skip if no admin access)
+  if (adminClient) {
+    try {
+      const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
+      console.log(
+        `[pool] replenish after click toShopId=${toShopId} created=${replenishResult.created} poolSize=${replenishResult.poolSize}`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[pool] replenish after activation failed toShopId=${toShopId}: ${message}`);
+    }
+  } else {
+    console.log(`[pool] skipping replenish for toShopId=${toShopId} (no admin access)`);
   }
 
   return activatedCode;
