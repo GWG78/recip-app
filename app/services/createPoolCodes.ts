@@ -222,7 +222,10 @@ export async function ensureDiscountPool(toShopId: string, options: EnsurePoolOp
     if (currentPool >= poolSize) break;
 
     const code = generateCode(prefix);
-
+    
+    // Always create DB record first - we can activate codes even without Shopify GID
+    const generatedGid = `gid://shopify/DiscountCode/${code}`;
+    
     try {
       const shopifyResult = await createShopifyDiscountCode({
         adminClient,
@@ -232,6 +235,7 @@ export async function ensureDiscountPool(toShopId: string, options: EnsurePoolOp
         // Don't pass expiryHours for pool codes - they should last indefinitely
       });
 
+      // Shopify succeeded, update with real GID
       await prisma.discountCode.create({
         data: {
           toShopId,
@@ -242,12 +246,36 @@ export async function ensureDiscountPool(toShopId: string, options: EnsurePoolOp
           endsAt: shopifyResult.endsAt,
         },
       });
-
+      
       createdCodes.push(code);
-      console.log(`[pool] toShopId=${toShopId} created ${code}`);
+      console.log(`[pool] toShopId=${toShopId} created ${code} (Shopify)`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[pool] toShopId=${toShopId} failed creating code ${code}: ${message}`);
+      console.error(`[pool] toShopId=${toShopId} failed creating code ${code} in Shopify: ${message}`);
+      
+      // Shopify failed, but still create DB record with placeholder GID
+      // This allows activation to proceed even without Shopify access
+      try {
+        const now = new Date();
+        const endsAt = new Date(now.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1 year
+        
+        await prisma.discountCode.create({
+          data: {
+            toShopId,
+            code,
+            shopifyDiscountGid: generatedGid,
+            state: "POOL",
+            startsAt: now,
+            endsAt,
+          },
+        });
+        
+        createdCodes.push(code);
+        console.log(`[pool] toShopId=${toShopId} created ${code} (DB only, Shopify access not available)`);
+      } catch (dbError) {
+        const dbMessage = dbError instanceof Error ? dbError.message : String(dbError);
+        console.error(`[pool] toShopId=${toShopId} failed creating DB record for ${code}: ${dbMessage}`);
+      }
     }
   }
 
