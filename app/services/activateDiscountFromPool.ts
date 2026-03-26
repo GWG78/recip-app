@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "../db.server";
 import { trackEventTx } from "../lib/trackEvent";
 import { ensureDiscountPool } from "./createPoolCodes";
+import { sendReferralEventRow } from "../lib/googleSheets.server";
 
 const EXPIRY_HOURS = 72;
 const UPDATE_DISCOUNT_MUTATION = `
@@ -167,6 +168,44 @@ export async function activateDiscountFromPool({
     }
   } else {
     console.log(`[pool] skipping replenish for toShopId=${toShopId} (no admin access)`);
+  }
+
+  // 6️⃣ Sync CLICK event to Google Sheets
+  try {
+    const toShop = await prisma.shop.findUnique({
+      where: { id: toShopId },
+      select: { shopDomain: true },
+    });
+    const fromShop = fromShopId
+      ? await prisma.shop.findUnique({
+          where: { id: fromShopId },
+          select: { shopDomain: true },
+        })
+      : null;
+
+    await sendReferralEventRow({
+      event_id: activatedCode.id,
+      event_type: "CLICK",
+      timestamp: activatedCode.activatedAt?.toISOString() || new Date().toISOString(),
+      from_shop_domain: fromShop?.shopDomain ?? null,
+      to_shop_domain: toShop?.shopDomain ?? null,
+      offer_id: offerId,
+      discount_code: activatedCode.code,
+      discount_code_id: activatedCode.id,
+      discount_state: "ACTIVE",
+      order_id: orderId ?? null,
+      order_number: null,
+      order_currency: null,
+      order_total: null,
+      line_item_count: null,
+      user_agent: null,
+      referer: null,
+      environment: process.env.NODE_ENV || null,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[activation] failed to sync CLICK event to sheets: ${message}`);
+    // Continue anyway - event is already in DB
   }
 
   return activatedCode;
