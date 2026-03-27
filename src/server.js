@@ -5,6 +5,7 @@ import express from 'express';
 import { env } from './env.js';
 import { prisma } from './db.js';
 import healthRouter from './routes/health.js';
+import eventsRouter from './routes/events.js';
 import authRouter from './auth/shopifyAuth.js';
 import webhookRouter from './webhooks/index.js';
 
@@ -15,6 +16,7 @@ app.use('/webhooks', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 app.use('/health', healthRouter);
+app.use('/events', eventsRouter);
 app.use('/auth', authRouter);
 app.use('/webhooks', webhookRouter);
 

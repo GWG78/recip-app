@@ -19,9 +19,12 @@ export const env = {
     installsUrl:
       process.env.GOOGLE_SHEETS_INSTALLS_URL ||
       process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL,
+    referralEventsUrl:
+      process.env.GOOGLE_SHEETS_REFERRAL_EVENTS_URL ||
+      process.env.GOOGLE_SHEETS_FRIENDLY_BRANDS_URL,
     apiKey: process.env.GOOGLE_SHEETS_API_KEY,
-    friendlyBrandsSheetName:
-      process.env.FRIENDLY_BRANDS_SHEET_NAME || 'FriendlyBrandLeads',
+    friendlyBrandsSheetName: process.env.FRIENDLY_BRANDS_SHEET_NAME || 'FriendlyBrandLeads',
     installsSheetName: process.env.INSTALLS_SHEET_NAME || 'Installs',
+    referralEventsSheetName: process.env.REFERRAL_EVENTS_SHEET_NAME || 'ReferralEvents',
   },
 };
