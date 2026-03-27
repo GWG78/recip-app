@@ -43,6 +43,7 @@ export async function loader({ params, request }) {
   try {
     adminClient = await resolveAdminClient(toShop.id);
   } catch (error) {
+    // Expected for destination shops that aren't installed
     console.log(`[r/${offerId}] no admin access for destination shop ${toShopDomain}, skipping Shopify updates`);
   }
 
@@ -51,7 +52,7 @@ export async function loader({ params, request }) {
     fromShopId: fromShop?.id,
     offerId,
     orderId,
-    adminClient,
+    adminClient, // This will be undefined if resolveAdminClient failed
   });
 
   // Redirect directly to Shopify with auto-applied discount
