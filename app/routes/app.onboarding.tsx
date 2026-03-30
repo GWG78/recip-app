@@ -1,12 +1,10 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import {
   AppProvider as PolarisAppProvider,
   Page,
   Layout,
   Card,
-  BlockStack,
-  InlineStack,
   Text,
   TextField,
   ChoiceList,
@@ -149,6 +147,50 @@ function OfferPreviewCard({
   );
 }
 
+function getGapValue(gap: string | number | undefined) {
+  const num = Number(gap) || 0;
+  return `${num * 8}px`;
+}
+
+function VStack({
+  children,
+  gap,
+}: {
+  children: ReactNode;
+  gap?: string | number;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: getGapValue(gap) }}>
+      {children}
+    </div>
+  );
+}
+
+function HStack({
+  children,
+  align,
+  justify,
+  gap,
+}: {
+  children: ReactNode;
+  align?: "start" | "center" | "end";
+  justify?: "start" | "center" | "end" | "space-between" | "space-around" | "space-evenly";
+  gap?: string | number;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: align ?? "center",
+        justifyContent: justify ?? "flex-start",
+        gap: getGapValue(gap),
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
   return Response.json({});
@@ -249,15 +291,15 @@ export default function OnboardingPage() {
 
           <Layout.Section oneHalf>
             <form onSubmit={handleSubmit}>
-              <BlockStack gap="6">
+              <VStack gap="6">
                 <Card sectioned>
-                  <BlockStack gap="5">
+                  <VStack gap="5">
                     <Text as="h2" variant="headingMd">
                       Brand basics
                     </Text>
 
-                    <InlineStack align="center" justify="space-between">
-                      <InlineStack align="center" gap="4">
+                    <HStack align="center" justify="space-between">
+                      <HStack align="center" gap="4">
                         <LogoPreview logoUrl={previewLogoUrl} brandName={brandName || "Your brand"} />
                         <div>
                           <Text as="p" variant="headingSm">
@@ -267,8 +309,8 @@ export default function OnboardingPage() {
                             Your logo is pulled from Shopify automatically.
                           </Text>
                         </div>
-                      </InlineStack>
-                    </InlineStack>
+                      </HStack>
+                    </HStack>
 
                     <TextField
                       label="Brand name"
@@ -305,11 +347,11 @@ export default function OnboardingPage() {
                       helpText="Add up to 3 product links, one per line, so we can match your brand more accurately."
                       error={productUrlsError}
                     />
-                  </BlockStack>
+                  </VStack>
                 </Card>
 
                 <Card sectioned>
-                  <BlockStack gap="5">
+                  <VStack gap="5">
                     <Text as="h2" variant="headingMd">
                       Matching
                     </Text>
@@ -330,11 +372,11 @@ export default function OnboardingPage() {
                       multiline={3}
                       helpText="Add brand names, one per line. We’ll use this as a signal, but matches are still based on fit and performance."
                     />
-                  </BlockStack>
+                  </VStack>
                 </Card>
 
                 <Card sectioned>
-                  <BlockStack gap="4">
+                  <VStack gap="4">
                     <Text as="h2" variant="headingMd">
                       Offer rules
                     </Text>
@@ -344,11 +386,11 @@ export default function OnboardingPage() {
                       onChange={setNewCustomersOnly}
                       helpText="If enabled, Recip will create offers intended for first-time customers only."
                     />
-                  </BlockStack>
+                  </VStack>
                 </Card>
 
                 <Card sectioned>
-                  <BlockStack gap="4">
+                  <VStack gap="4">
                     <Text as="h2" variant="headingMd">
                       Network participation
                     </Text>
@@ -358,7 +400,7 @@ export default function OnboardingPage() {
                       onChange={setParticipateNetwork}
                       helpText="If turned off, your offers will stop appearing on other stores and Recip offers will no longer be shown on your store."
                     />
-                  </BlockStack>
+                  </VStack>
                 </Card>
 
                 {submissionAttempted && hasErrors ? (
@@ -382,15 +424,15 @@ export default function OnboardingPage() {
                 <Button primary submit disabled={hasErrors}>
                   Save and continue
                 </Button>
-              </BlockStack>
+              </VStack>
             </form>
           </Layout.Section>
 
           <Layout.Section oneHalf>
             <div style={{ position: "sticky", top: 24 }}>
               <Card sectioned>
-                <BlockStack gap="4">
-                  <InlineStack align="center" justify="space-between">
+                <VStack gap="4">
+                  <HStack align="center" justify="space-between">
                     <Text as="h2" variant="headingMd">
                       Live preview
                     </Text>
@@ -399,17 +441,17 @@ export default function OnboardingPage() {
                       alt={brandName || "Logo placeholder"}
                       size="small"
                     />
-                  </InlineStack>
+                  </HStack>
                   <OfferPreviewCard
                     logoUrl={previewLogoUrl}
                     brandName={brandName}
                     description={description}
                   />
-                </BlockStack>
+                </VStack>
               </Card>
 
               <Card sectioned>
-                <BlockStack gap="3">
+                <VStack gap="3">
                   <Text as="h3" variant="headingMd">
                     How Recip works
                   </Text>
@@ -419,7 +461,7 @@ export default function OnboardingPage() {
                   <Text as="p" variant="bodySm" color="subdued">
                     After you continue, we’ll suggest a category and sub-category for your brand. You’ll be able to confirm or edit it.
                   </Text>
-                </BlockStack>
+                </VStack>
               </Card>
             </div>
           </Layout.Section>
