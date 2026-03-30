@@ -233,11 +233,15 @@ async function fetchShopBrandLogo(shop: string | undefined, accessToken: string 
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
-  const shopDomain = (session as unknown as { shop?: string | null }).shop ?? null;
-  const logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
-  return Response.json({ logoUrl });
+  try {
+    const { session } = await authenticate.admin(request);
+    const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
+    const shopDomain = (session as unknown as { shop?: string | null }).shop ?? null;
+    const logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
+    return Response.json({ logoUrl });
+  } catch {
+    return Response.json({ logoUrl: null });
+  }
 };
 
 export default function OnboardingPage() {
@@ -277,7 +281,7 @@ export default function OnboardingPage() {
     Boolean(monthlyVolumeError) ||
     Boolean(productUrlsError);
 
-  const previewLogoUrl = logoUrl ?? undefined;
+  const previewLogoUrl = logoUrl ? logoUrl : undefined;
 
   const formPayload = {
     brandName: brandName.trim(),

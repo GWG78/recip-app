@@ -9,53 +9,58 @@ import { sendInstallLead } from "../lib/googleSheets.server";
 import { ensureDiscountPool } from "../services/createPoolCodes";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, admin } = await authenticate.admin(request);
-  const adminClient = {
-    graphql: admin.graphql.bind(admin),
-  };
-  const sessionAccessToken =
-    (session as unknown as { accessToken?: string | null }).accessToken ?? null;
-  const sessionScope = (session as unknown as { scope?: string | null }).scope ?? null;
+  let apiKey = process.env.SHOPIFY_API_KEY || "";
 
-  const existingShop = await db.shop.findUnique({
-    where: { shopDomain: session.shop },
-  });
+  try {
+    const { session, admin } = await authenticate.admin(request);
+    const adminClient = {
+      graphql: admin.graphql.bind(admin),
+    };
+    const sessionAccessToken =
+      (session as unknown as { accessToken?: string | null }).accessToken ?? null;
+    const sessionScope = (session as unknown as { scope?: string | null }).scope ?? null;
 
-  if (!existingShop) {
-    const createdShop = await db.shop.create({
-      data: {
-        shopDomain: session.shop,
-        installed: true,
-        uninstalledAt: null,
-        accessToken: sessionAccessToken,
-        scope: sessionScope,
-      },
-    });
-    await sendInstallLead({ shopDomain: session.shop });
-    await ensureDiscountPool(createdShop.id, { adminClient });
-  } else {
-    await db.shop.update({
-      where: { id: existingShop.id },
-      data: {
-        ...(sessionAccessToken ? { accessToken: sessionAccessToken } : {}),
-        ...(sessionScope ? { scope: sessionScope } : {}),
-        ...(!existingShop.installed || existingShop.uninstalledAt
-          ? {
-              installed: true,
-              uninstalledAt: null,
-            }
-          : {}),
-      },
+    const existingShop = await db.shop.findUnique({
+      where: { shopDomain: session.shop },
     });
 
-    if (!existingShop.installed || existingShop.uninstalledAt) {
+    if (!existingShop) {
+      const createdShop = await db.shop.create({
+        data: {
+          shopDomain: session.shop,
+          installed: true,
+          uninstalledAt: null,
+          accessToken: sessionAccessToken,
+          scope: sessionScope,
+        },
+      });
       await sendInstallLead({ shopDomain: session.shop });
-      await ensureDiscountPool(existingShop.id, { adminClient });
+      await ensureDiscountPool(createdShop.id, { adminClient });
+    } else {
+      await db.shop.update({
+        where: { id: existingShop.id },
+        data: {
+          ...(sessionAccessToken ? { accessToken: sessionAccessToken } : {}),
+          ...(sessionScope ? { scope: sessionScope } : {}),
+          ...(!existingShop.installed || existingShop.uninstalledAt
+            ? {
+                installed: true,
+                uninstalledAt: null,
+              }
+            : {}),
+        },
+      });
+
+      if (!existingShop.installed || existingShop.uninstalledAt) {
+        await sendInstallLead({ shopDomain: session.shop });
+        await ensureDiscountPool(existingShop.id, { adminClient });
+      }
     }
+  } catch {
+    // Allow the app to render without forcing Shopify admin authentication.
   }
 
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey };
 };
 
 export default function App() {
