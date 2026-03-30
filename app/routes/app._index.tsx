@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs } from "react-router";
+import { useLocation, type LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -7,6 +7,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function Home() {
+  const location = useLocation();
+  const search = location.search || "";
+
   return (
     <div
       style={{
@@ -22,7 +25,7 @@ export default function Home() {
       </p>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <a
-          href="/app/onboarding"
+          href={`/app/onboarding${search}`}
           style={{
             display: "inline-block",
             padding: "12px 20px",
@@ -36,7 +39,7 @@ export default function Home() {
           Go to onboarding
         </a>
         <a
-          href="/app/additional"
+          href={`/app/additional${search}`}
           style={{
             display: "inline-block",
             padding: "12px 20px",

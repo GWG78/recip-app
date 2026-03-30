@@ -16,6 +16,7 @@ import {
 import translations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
 
 const volumeOptions = [
   { label: "0–100", value: "0-100" },
@@ -25,10 +26,6 @@ const volumeOptions = [
 ];
 
 const urlPattern = /^https?:\/\/[\w\-]+(\.[\w\-]+)+([/?#][^\s]*)?$/i;
-
-function validateWebsiteUrl(value: string) {
-  return value.trim().length > 0 && urlPattern.test(value.trim());
-}
 
 function validateProductUrls(value: string) {
   const lines = value
@@ -233,21 +230,42 @@ async function fetchShopBrandLogo(shop: string | undefined, accessToken: string 
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const url = new URL(request.url);
+  const shopParam = url.searchParams.get("shop") ?? undefined;
+  let logoUrl: string | null = null;
+
   try {
     const { session } = await authenticate.admin(request);
     const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
-    const shopDomain = (session as unknown as { shop?: string | null }).shop ?? null;
-    const logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
-    return Response.json({ logoUrl });
+    const shopDomain = (session as unknown as { shop?: string | null }).shop ?? shopParam;
+
+    if (shopDomain && accessToken) {
+      logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
+    } else if (shopDomain) {
+      const existingShop = await db.shop.findUnique({
+        where: { shopDomain },
+      });
+      if (existingShop?.accessToken) {
+        logoUrl = await fetchShopBrandLogo(shopDomain, existingShop.accessToken);
+      }
+    }
   } catch {
-    return Response.json({ logoUrl: null });
+    if (shopParam) {
+      const existingShop = await db.shop.findUnique({
+        where: { shopDomain: shopParam },
+      });
+      if (existingShop?.accessToken) {
+        logoUrl = await fetchShopBrandLogo(shopParam, existingShop.accessToken);
+      }
+    }
   }
+
+  return Response.json({ logoUrl });
 };
 
 export default function OnboardingPage() {
   const { logoUrl } = useLoaderData<typeof loader>();
   const [brandName, setBrandName] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
   const [description, setDescription] = useState("");
   const [productUrls, setProductUrls] = useState("");
   const [monthlyVolume, setMonthlyVolume] = useState<string | undefined>();
@@ -257,14 +275,6 @@ export default function OnboardingPage() {
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  const websiteUrlError = submissionAttempted
-    ? websiteUrl.trim().length === 0
-      ? "Website URL is required."
-      : !validateWebsiteUrl(websiteUrl)
-      ? "Enter a valid website URL starting with http:// or https://."
-      : ""
-    : "";
 
   const productUrlsError = productUrls.trim().length > 0 ? validateProductUrls(productUrls) : "";
 
@@ -276,7 +286,6 @@ export default function OnboardingPage() {
 
   const hasErrors =
     Boolean(brandNameError) ||
-    Boolean(websiteUrlError) ||
     Boolean(descriptionError) ||
     Boolean(monthlyVolumeError) ||
     Boolean(productUrlsError);
@@ -285,7 +294,6 @@ export default function OnboardingPage() {
 
   const formPayload = {
     brandName: brandName.trim(),
-    websiteUrl: websiteUrl.trim(),
     description: description.trim(),
     productUrls: productUrls
       .split(/\r?\n/)
@@ -355,7 +363,7 @@ export default function OnboardingPage() {
                             Brand preview
                           </Text>
                           <Text as="p" variant="bodySm" color="subdued">
-                            Your logo is pulled from Shopify automatically.
+                            Your logo will appear here once your store is connected.
                           </Text>
                         </div>
                       </HStack>
@@ -366,15 +374,6 @@ export default function OnboardingPage() {
                       value={brandName}
                       onChange={setBrandName}
                       error={brandNameError}
-                      requiredIndicator
-                    />
-
-                    <TextField
-                      label="Website URL"
-                      value={websiteUrl}
-                      onChange={setWebsiteUrl}
-                      placeholder="https://yourbrand.com"
-                      error={websiteUrlError}
                       requiredIndicator
                     />
 
