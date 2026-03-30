@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { LoaderFunctionArgs } from "react-router";
+import { useLoaderData, type LoaderFunctionArgs } from "react-router";
 import {
   AppProvider as PolarisAppProvider,
   Page,
@@ -191,12 +191,57 @@ function HStack({
   );
 }
 
+async function fetchShopBrandLogo(shop: string | undefined, accessToken: string | undefined) {
+  if (!shop || !accessToken) {
+    return null;
+  }
+
+  const query = `
+    query ShopBrandLogo {
+      shop {
+        name
+        brand {
+          logo {
+            image {
+              url
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await fetch(`https://${shop}/admin/api/2025-10/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const json = await response.json();
+    return json?.data?.shop?.brand?.logo?.image?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-  return Response.json({});
+  const { session } = await authenticate.admin(request);
+  const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
+  const shopDomain = (session as unknown as { shop?: string | null }).shop ?? null;
+  const logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
+  return Response.json({ logoUrl });
 };
 
 export default function OnboardingPage() {
+  const { logoUrl } = useLoaderData<typeof loader>();
   const [brandName, setBrandName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [description, setDescription] = useState("");
@@ -232,7 +277,7 @@ export default function OnboardingPage() {
     Boolean(monthlyVolumeError) ||
     Boolean(productUrlsError);
 
-  const previewLogoUrl = undefined; // TODO: plug in real Shopify logo data here.
+  const previewLogoUrl = logoUrl ?? undefined;
 
   const formPayload = {
     brandName: brandName.trim(),
