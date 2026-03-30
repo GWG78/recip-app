@@ -9,10 +9,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
 
   if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
+    throw redirect(`/app/onboarding?${url.searchParams.toString()}`);
   }
 
-  return { showForm: Boolean(login) };
+  throw redirect("/app/onboarding");
 };
 
 export default function App() {
