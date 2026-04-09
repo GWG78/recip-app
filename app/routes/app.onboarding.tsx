@@ -113,7 +113,7 @@ function OfferPreviewCard({
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
         <LogoPreview logoUrl={logoUrl} brandName={displayName} />
         <div>
-          <Text as="p" variant="headingMd" style={{ margin: 0 }}>
+          <Text as="p" variant="headingMd" style={{ margin: 0, fontSize: "1.2rem" }}>
             {displayName}
           </Text>
           <Text as="p" variant="headingSm" style={{ marginTop: 4, fontStyle: "italic" }}>
@@ -384,15 +384,6 @@ export default function OnboardingPage() {
                       error={descriptionError}
                       requiredIndicator
                     />
-
-                    <TextField
-                      label="Example product URLs"
-                      value={productUrls}
-                      onChange={setProductUrls}
-                      multiline={3}
-                      helpText="Add up to 3 product links, one per line, so we can match your brand more accurately."
-                      error={productUrlsError}
-                    />
                   </VStack>
                 </Card>
 
@@ -440,6 +431,9 @@ export default function OnboardingPage() {
                     <Text as="h2" variant="headingMd">
                       Matching
                     </Text>
+                    <Text as="p" variant="bodyMd" color="subdued">
+                      We use this information to connect you with complementary brands and place your offers where they're most likely to convert.
+                    </Text>
 
                     <ChoiceList
                       title="How many orders do you typically get per month?"
@@ -448,6 +442,15 @@ export default function OnboardingPage() {
                       onChange={(selected) => setMonthlyVolume(selected[0])}
                       allowMultiple={false}
                       error={monthlyVolumeError}
+                    />
+
+                    <TextField
+                      label="Example product URLs"
+                      value={productUrls}
+                      onChange={setProductUrls}
+                      multiline={3}
+                      helpText="Add up to 3 product links, one per line, so we can match your brand more accurately."
+                      error={productUrlsError}
                     />
 
                     <TextField
@@ -507,11 +510,6 @@ export default function OnboardingPage() {
                     <Text as="h2" variant="headingMd">
                       Live preview
                     </Text>
-                    <Thumbnail
-                      source={previewLogoUrl || "https://cdn.shopify.com/s/files/1/0262/4071/2720/files/placeholder-avatar.svg"}
-                      alt={brandName || "Logo placeholder"}
-                      size="small"
-                    />
                   </HStack>
                   <OfferPreviewCard
                     logoUrl={previewLogoUrl}
