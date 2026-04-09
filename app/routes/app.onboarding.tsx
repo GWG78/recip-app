@@ -190,19 +190,13 @@ function HStack({
 
 async function fetchShopLogoFromAdmin(adminGraphql: any) {
   try {
-    // Since Shopify doesn't expose brand/logo data via Admin API,
-    // fetch the first product's image as a visual placeholder
+    // Shopify Admin API doesn't expose brand or logo data
+    // Logo must be provided manually by the user
     const response = await adminGraphql(
       `#graphql
       query {
-        products(first: 1) {
-          edges {
-            node {
-              featuredImage {
-                url
-              }
-            }
-          }
+        shop {
+          name
         }
       }`
     );
@@ -210,20 +204,15 @@ async function fetchShopLogoFromAdmin(adminGraphql: any) {
     const result = await response.json();
     
     if (result?.errors?.length) {
-      console.log(`[app.onboarding] product image query errors`, result.errors);
+      console.log(`[app.onboarding] shop query errors`, result.errors);
       return null;
     }
 
-    const imageUrl = result?.data?.products?.edges?.[0]?.node?.featuredImage?.url;
-    if (imageUrl) {
-      console.log(`[app.onboarding] found product image for preview`);
-      return imageUrl;
-    }
-    
-    console.log(`[app.onboarding] no product images found`);
+    const shopName = result?.data?.shop?.name;
+    console.log(`[app.onboarding] connected to shop:`, shopName);
     return null;
   } catch (error) {
-    console.log(`[app.onboarding] product query error`, error instanceof Error ? error.message : error);
+    console.log(`[app.onboarding] shop query error`, error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -364,7 +353,7 @@ export default function OnboardingPage() {
                       label="Logo URL (optional)"
                       value={userLogoUrl}
                       onChange={setUserLogoUrl}
-                      helpText="We use your first product image as a placeholder. Add your brand logo URL to customize it."
+                      helpText="Add your brand logo. You can find your logo in Shopify Admin Settings > Brand > Logo, or upload it to a CDN and paste the URL here."
                       error={logoUrlError}
                       placeholder="https://example.com/logo.png"
                     />
