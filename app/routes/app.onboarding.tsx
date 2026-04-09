@@ -337,26 +337,16 @@ export default function OnboardingPage() {
 
           <Layout.Section oneHalf>
             <form onSubmit={handleSubmit}>
-              <VStack gap="6">
+              <VStack gap="2.5">
                 <Card sectioned>
                   <VStack gap="5">
                     <Text as="h2" variant="headingMd">
                       Brand basics
                     </Text>
 
-                    <HStack align="center" justify="space-between">
-                      <HStack align="center" gap="4">
-                        <LogoPreview logoUrl={previewLogoUrl} brandName={brandName || "Your brand"} />
-                        <div>
-                          <Text as="p" variant="headingSm">
-                            Brand preview
-                          </Text>
-                          <Text as="p" variant="bodySm" color="subdued">
-                            Add your logo URL above to see it in the preview.
-                          </Text>
-                        </div>
-                      </HStack>
-                    </HStack>
+                    <Text as="p" variant="bodyMd" color="subdued">
+                      Build your offer and preview exactly how it will be shown customers post-purchase on partner brands' sites.
+                    </Text>
 
                     <TextField
                       label="Brand name"
@@ -399,7 +389,7 @@ export default function OnboardingPage() {
                           label="Discount amount"
                           value={offerValue}
                           onChange={setOfferValue}
-                          placeholder="e.g., 20 or 15"
+                          placeholder="e.g., 25 or 30"
                           type="number"
                         />
                       </div>
@@ -503,7 +493,7 @@ export default function OnboardingPage() {
           </Layout.Section>
 
           <Layout.Section oneHalf>
-            <div style={{ position: "sticky", top: 24 }}>
+            <div style={{ position: "sticky", top: 0 }}>
               <Card sectioned>
                 <VStack gap="4">
                   <HStack align="center" justify="space-between">
