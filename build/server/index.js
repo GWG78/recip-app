@@ -1813,50 +1813,64 @@ function HStack({
 async function fetchShopLogoFromAdmin(adminGraphql) {
   var _a2, _b, _c, _d, _e, _f;
   try {
-    const response = await adminGraphql(`query {
+    const shopResponse = await adminGraphql(`#graphql
+      query {
         shop {
           name
           myShopifyDomain
-          primaryDomain {
-            host
-          }
         }
       }`);
-    const result = await response.json();
-    if ((_a2 = result == null ? void 0 : result.errors) == null ? void 0 : _a2.length) {
-      console.log(`[app.onboarding] shop query errors`, result.errors);
+    if (!shopResponse.ok) {
+      console.log(`[app.onboarding] shop query failed with status`, shopResponse.status);
       return null;
     }
-    const shopName = (_c = (_b = result == null ? void 0 : result.data) == null ? void 0 : _b.shop) == null ? void 0 : _c.name;
+    const shopResult = await shopResponse.json();
+    if ((_a2 = shopResult == null ? void 0 : shopResult.errors) == null ? void 0 : _a2.length) {
+      console.log(`[app.onboarding] shop query errors`, shopResult.errors);
+      return null;
+    }
+    const shopName = (_c = (_b = shopResult == null ? void 0 : shopResult.data) == null ? void 0 : _b.shop) == null ? void 0 : _c.name;
     console.log(`[app.onboarding] fetched shop info:`, {
       shopName
     });
-    const metafieldsResponse = await adminGraphql(`query {
-        shop {
-          metafields(first: 10, namespace: "custom") {
-            edges {
-              node {
-                key
-                value
+    try {
+      const metafieldsResponse = await adminGraphql(`#graphql
+        query {
+          shop {
+            metafields(first: 10, namespace: "custom") {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                }
               }
             }
           }
+        }`);
+      if (metafieldsResponse.ok) {
+        const metafieldsResult = await metafieldsResponse.json();
+        if (!((_d = metafieldsResult == null ? void 0 : metafieldsResult.errors) == null ? void 0 : _d.length) && ((_f = (_e = metafieldsResult == null ? void 0 : metafieldsResult.data) == null ? void 0 : _e.shop) == null ? void 0 : _f.metafields)) {
+          const edges = metafieldsResult.data.shop.metafields.edges || [];
+          for (const {
+            node
+          } of edges) {
+            if (node.key.toLowerCase().includes("logo") && node.value.startsWith("http")) {
+              console.log(`[app.onboarding] found logo in metafields:`, node.value);
+              return node.value;
+            }
+          }
         }
-      }`);
-    const metafieldsResult = await metafieldsResponse.json();
-    const metafields = ((_f = (_e = (_d = metafieldsResult == null ? void 0 : metafieldsResult.data) == null ? void 0 : _d.shop) == null ? void 0 : _e.metafields) == null ? void 0 : _f.edges) || [];
-    for (const {
-      node
-    } of metafields) {
-      if (node.key.toLowerCase().includes("logo") && node.value.startsWith("http")) {
-        console.log(`[app.onboarding] found logo in metafields:`, node.value);
-        return node.value;
       }
+    } catch (metafieldError) {
+      console.log(`[app.onboarding] metafields query failed (may lack required scope):`, metafieldError);
     }
-    console.log(`[app.onboarding] no logo found in shop data`);
+    console.log(`[app.onboarding] no logo found in shop metafields`);
     return null;
   } catch (error) {
-    console.log(`[app.onboarding] shop query error`, error);
+    console.log(`[app.onboarding] shop query error`, error instanceof Error ? error.message : error);
     return null;
   }
 }

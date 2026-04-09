@@ -190,60 +190,77 @@ function HStack({
 
 async function fetchShopLogoFromAdmin(adminGraphql: any) {
   try {
-    const response = await adminGraphql(
-      `query {
+    // First query: Get basic shop info
+    const shopResponse = await adminGraphql(
+      `#graphql
+      query {
         shop {
           name
           myShopifyDomain
-          primaryDomain {
-            host
-          }
         }
       }`
     );
 
-    const result = await response.json();
-    
-    if (result?.errors?.length) {
-      console.log(`[app.onboarding] shop query errors`, result.errors);
+    if (!shopResponse.ok) {
+      console.log(`[app.onboarding] shop query failed with status`, shopResponse.status);
       return null;
     }
 
-    // Check if shop has metafields with logo information
-    const shopName = result?.data?.shop?.name;
+    const shopResult = await shopResponse.json();
+    
+    if (shopResult?.errors?.length) {
+      console.log(`[app.onboarding] shop query errors`, shopResult.errors);
+      return null;
+    }
+
+    const shopName = shopResult?.data?.shop?.name;
     console.log(`[app.onboarding] fetched shop info:`, { shopName });
 
-    // Query for metafields that might contain logo URL
-    const metafieldsResponse = await adminGraphql(
-      `query {
-        shop {
-          metafields(first: 10, namespace: "custom") {
-            edges {
-              node {
-                key
-                value
+    // Second query: Try to get metafields with namespace "custom"
+    // Note: This requires the "read_shop_settings_personal_data" scope
+    try {
+      const metafieldsResponse = await adminGraphql(
+        `#graphql
+        query {
+          shop {
+            metafields(first: 10, namespace: "custom") {
+              edges {
+                node {
+                  id
+                  namespace
+                  key
+                  value
+                  type
+                }
               }
             }
           }
-        }
-      }`
-    );
+        }`
+      );
 
-    const metafieldsResult = await metafieldsResponse.json();
-    const metafields = metafieldsResult?.data?.shop?.metafields?.edges || [];
-    
-    // Look for logo-related metafield
-    for (const { node } of metafields) {
-      if (node.key.toLowerCase().includes('logo') && node.value.startsWith('http')) {
-        console.log(`[app.onboarding] found logo in metafields:`, node.value);
-        return node.value;
+      if (metafieldsResponse.ok) {
+        const metafieldsResult = await metafieldsResponse.json();
+        
+        if (!metafieldsResult?.errors?.length && metafieldsResult?.data?.shop?.metafields) {
+          const edges = metafieldsResult.data.shop.metafields.edges || [];
+          
+          for (const { node } of edges) {
+            if (node.key.toLowerCase().includes('logo') && node.value.startsWith('http')) {
+              console.log(`[app.onboarding] found logo in metafields:`, node.value);
+              return node.value;
+            }
+          }
+        }
       }
+    } catch (metafieldError) {
+      console.log(`[app.onboarding] metafields query failed (may lack required scope):`, metafieldError);
+      // Continue - this is optional
     }
 
-    console.log(`[app.onboarding] no logo found in shop data`);
+    console.log(`[app.onboarding] no logo found in shop metafields`);
     return null;
   } catch (error) {
-    console.log(`[app.onboarding] shop query error`, error);
+    console.log(`[app.onboarding] shop query error`, error instanceof Error ? error.message : error);
     return null;
   }
 }
