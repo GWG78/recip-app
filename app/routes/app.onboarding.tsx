@@ -189,121 +189,16 @@ function HStack({
 }
 
 async function fetchShopBrandLogo(shop: string | undefined, accessToken: string | undefined) {
-  if (!shop || !accessToken) {
-    return null;
-  }
-
-  const query = `
-    query ShopBrandLogo {
-      shop {
-        name
-        brand {
-          logo {
-            image {
-              url
-            }
-          }
-        }
-      }
-    }
-  `;
-
-  try {
-    const response = await fetch(`https://${shop}/admin/api/2025-10/graphql.json`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    const json = await response.json().catch((error) => {
-      console.log(`[app.onboarding] shop=${shop} logo fetch invalid JSON`, {
-        status: response.status,
-        error,
-      });
-      return null;
-    });
-
-    if (!response.ok) {
-      console.log(`[app.onboarding] shop=${shop} logo fetch failed`, {
-        status: response.status,
-        body: json,
-      });
-      return null;
-    }
-
-    if (json?.errors?.length) {
-      console.log(`[app.onboarding] shop=${shop} logo query errors`, json.errors);
-    }
-
-    const logoUrl = json?.data?.shop?.brand?.logo?.image?.url ?? null;
-    console.log(`[app.onboarding] shop=${shop} logo fetched`, { logoUrl });
-    return logoUrl;
-  } catch (error) {
-    console.log(`[app.onboarding] shop=${shop} logo fetch error`, error);
-    return null;
-  }
+  // Shopify Admin API does not expose brand logo information
+  // The brand field doesn't exist on the Shop type
+  console.log(`[app.onboarding] Shopify Admin API does not provide brand logo access`);
+  return null;
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const url = new URL(request.url);
-  const shopParam = url.searchParams.get("shop") ?? undefined;
-  let logoUrl: string | null = null;
-
-  console.log(`[app.onboarding] loader starting`, {
-    shopParam,
-    url: request.url,
-    userAgent: request.headers.get('user-agent'),
-    referer: request.headers.get('referer'),
-  });
-
-  // First try to get logo using shop parameter from database
-  if (shopParam) {
-    try {
-      const existingShop = await db.shop.findUnique({
-        where: { shopDomain: shopParam },
-        select: { accessToken: true },
-      });
-
-      if (existingShop?.accessToken) {
-        console.log(`[app.onboarding] found shop in database, fetching logo`);
-        logoUrl = await fetchShopBrandLogo(shopParam, existingShop.accessToken);
-      } else {
-        console.log(`[app.onboarding] shop not found in database or no access token`);
-      }
-    } catch (dbError) {
-      console.log(`[app.onboarding] database error`, dbError);
-    }
-  }
-
-  // Fallback to session authentication
-  if (!logoUrl) {
-    try {
-      const { session } = await authenticate.admin(request);
-      const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
-      const shopDomain = (session as unknown as { shop?: string | null }).shop ?? shopParam;
-
-      console.log(`[app.onboarding] session authenticated`, {
-        shopDomain,
-        hasAccessToken: Boolean(accessToken),
-        sessionShop: (session as unknown as { shop?: string | null }).shop,
-      });
-
-      if (shopDomain && accessToken) {
-        logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
-      }
-    } catch (error) {
-      console.log(`[app.onboarding] authenticate.admin failed`, {
-        error: error instanceof Error ? error.message : error,
-        shopParam,
-      });
-    }
-  }
-
-  console.log(`[app.onboarding] loader complete`, { logoUrl });
-  return Response.json({ logoUrl });
+  // Shopify Admin API doesn't provide access to brand logo
+  // The logo will be handled through user input during onboarding
+  return Response.json({ logoUrl: null });
 };
 
 export default function OnboardingPage() {
@@ -318,6 +213,7 @@ export default function OnboardingPage() {
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [userLogoUrl, setUserLogoUrl] = useState<string>("");
 
   const productUrlsError = productUrls.trim().length > 0 ? validateProductUrls(productUrls) : "";
 
@@ -327,13 +223,16 @@ export default function OnboardingPage() {
 
   const monthlyVolumeError = submissionAttempted && !monthlyVolume ? "Please select your monthly order volume." : "";
 
+  const logoUrlError = submissionAttempted && userLogoUrl.trim().length > 0 && !urlPattern.test(userLogoUrl.trim()) ? "Logo URL must be a valid http:// or https:// address." : "";
+
   const hasErrors =
     Boolean(brandNameError) ||
     Boolean(descriptionError) ||
     Boolean(monthlyVolumeError) ||
-    Boolean(productUrlsError);
+    Boolean(productUrlsError) ||
+    Boolean(logoUrlError);
 
-  const previewLogoUrl = logoUrl ? logoUrl : undefined;
+  const previewLogoUrl = userLogoUrl.trim() || undefined;
 
   const formPayload = {
     brandName: brandName.trim(),
@@ -349,6 +248,7 @@ export default function OnboardingPage() {
       .filter(Boolean),
     newCustomersOnly,
     participateNetwork,
+    logoUrl: userLogoUrl.trim() || null,
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -406,7 +306,7 @@ export default function OnboardingPage() {
                             Brand preview
                           </Text>
                           <Text as="p" variant="bodySm" color="subdued">
-                            Your logo will appear here once your store is connected.
+                            Add your logo URL above to see it in the preview.
                           </Text>
                         </div>
                       </HStack>
@@ -418,6 +318,15 @@ export default function OnboardingPage() {
                       onChange={setBrandName}
                       error={brandNameError}
                       requiredIndicator
+                    />
+
+                    <TextField
+                      label="Logo URL (optional)"
+                      value={userLogoUrl}
+                      onChange={setUserLogoUrl}
+                      helpText="Provide a URL to your brand logo image (PNG, JPG, or SVG)"
+                      error={logoUrlError}
+                      placeholder="https://example.com/logo.png"
                     />
 
                     <TextField
