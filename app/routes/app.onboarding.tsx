@@ -188,17 +188,77 @@ function HStack({
   );
 }
 
-async function fetchShopBrandLogo(shop: string | undefined, accessToken: string | undefined) {
-  // Shopify Admin API does not expose brand logo information
-  // The brand field doesn't exist on the Shop type
-  console.log(`[app.onboarding] Shopify Admin API does not provide brand logo access`);
-  return null;
+async function fetchShopLogoFromAdmin(adminGraphql: any) {
+  try {
+    const response = await adminGraphql(
+      `query {
+        shop {
+          name
+          myShopifyDomain
+          primaryDomain {
+            host
+          }
+        }
+      }`
+    );
+
+    const result = await response.json();
+    
+    if (result?.errors?.length) {
+      console.log(`[app.onboarding] shop query errors`, result.errors);
+      return null;
+    }
+
+    // Check if shop has metafields with logo information
+    const shopName = result?.data?.shop?.name;
+    console.log(`[app.onboarding] fetched shop info:`, { shopName });
+
+    // Query for metafields that might contain logo URL
+    const metafieldsResponse = await adminGraphql(
+      `query {
+        shop {
+          metafields(first: 10, namespace: "custom") {
+            edges {
+              node {
+                key
+                value
+              }
+            }
+          }
+        }
+      }`
+    );
+
+    const metafieldsResult = await metafieldsResponse.json();
+    const metafields = metafieldsResult?.data?.shop?.metafields?.edges || [];
+    
+    // Look for logo-related metafield
+    for (const { node } of metafields) {
+      if (node.key.toLowerCase().includes('logo') && node.value.startsWith('http')) {
+        console.log(`[app.onboarding] found logo in metafields:`, node.value);
+        return node.value;
+      }
+    }
+
+    console.log(`[app.onboarding] no logo found in shop data`);
+    return null;
+  } catch (error) {
+    console.log(`[app.onboarding] shop query error`, error);
+    return null;
+  }
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // Shopify Admin API doesn't provide access to brand logo
-  // The logo will be handled through user input during onboarding
-  return Response.json({ logoUrl: null });
+  let logoUrl: string | null = null;
+
+  try {
+    const { admin } = await authenticate.admin(request);
+    logoUrl = await fetchShopLogoFromAdmin(admin.graphql);
+  } catch (error) {
+    console.log(`[app.onboarding] loader error:`, error);
+  }
+
+  return Response.json({ logoUrl });
 };
 
 export default function OnboardingPage() {
@@ -213,7 +273,7 @@ export default function OnboardingPage() {
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [userLogoUrl, setUserLogoUrl] = useState<string>("");
+  const [userLogoUrl, setUserLogoUrl] = useState<string>(logoUrl || "");
 
   const productUrlsError = productUrls.trim().length > 0 ? validateProductUrls(productUrls) : "";
 
@@ -324,7 +384,7 @@ export default function OnboardingPage() {
                       label="Logo URL (optional)"
                       value={userLogoUrl}
                       onChange={setUserLogoUrl}
-                      helpText="Provide a URL to your brand logo image (PNG, JPG, or SVG)"
+                      helpText="We'll try to auto-detect your logo. You can edit or replace it here."
                       error={logoUrlError}
                       placeholder="https://example.com/logo.png"
                     />
