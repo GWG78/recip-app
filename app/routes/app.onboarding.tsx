@@ -77,15 +77,28 @@ function OfferPreviewCard({
   logoUrl,
   brandName,
   description,
+  offerValue,
+  offerType,
+  newCustomersOnly,
 }: {
   logoUrl?: string;
   brandName: string;
   description: string;
+  offerValue?: string;
+  offerType?: "percentage" | "fixed";
+  newCustomersOnly?: boolean;
 }) {
   const displayName = brandName.trim() || "Your brand";
   const displayDescription = description.trim()
     ? description
     : "Your offer preview will appear here.";
+
+  const getOfferText = () => {
+    if (!offerValue) return "Your offer will appear here";
+    const symbol = offerType === "percentage" ? "%" : "$";
+    const offerPart = `Get ${offerValue}${symbol} off`;
+    return newCustomersOnly ? `${offerPart} your first order` : offerPart;
+  };
 
   return (
     <div
@@ -103,8 +116,8 @@ function OfferPreviewCard({
           <Text as="p" variant="headingMd" style={{ margin: 0 }}>
             {displayName}
           </Text>
-          <Text as="p" variant="bodySm" color="subdued" style={{ marginTop: 4 }}>
-            Partner offer card preview
+          <Text as="p" variant="headingSm" style={{ marginTop: 4, fontStyle: "italic" }}>
+            {getOfferText()}
           </Text>
         </div>
       </div>
@@ -237,6 +250,8 @@ export default function OnboardingPage() {
   const [productUrls, setProductUrls] = useState("");
   const [monthlyVolume, setMonthlyVolume] = useState<string | undefined>();
   const [friendlyBrands, setFriendlyBrands] = useState("");
+  const [offerValue, setOfferValue] = useState("");
+  const [offerType, setOfferType] = useState<"percentage" | "fixed">("percentage");
   const [newCustomersOnly, setNewCustomersOnly] = useState(false);
   const [participateNetwork, setParticipateNetwork] = useState(true);
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
@@ -275,6 +290,8 @@ export default function OnboardingPage() {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean),
+    offerValue: offerValue.trim() || null,
+    offerType,
     newCustomersOnly,
     participateNetwork,
     logoUrl: userLogoUrl.trim() || null,
@@ -382,6 +399,45 @@ export default function OnboardingPage() {
                 <Card sectioned>
                   <VStack gap="5">
                     <Text as="h2" variant="headingMd">
+                      Your Offer
+                    </Text>
+
+                    <HStack gap="4" align="end">
+                      <div style={{ flex: 1 }}>
+                        <TextField
+                          label="Discount amount"
+                          value={offerValue}
+                          onChange={setOfferValue}
+                          placeholder="e.g., 20 or 15"
+                          type="number"
+                        />
+                      </div>
+                      <div style={{ minWidth: 120 }}>
+                        <ChoiceList
+                          title="Type"
+                          choices={[
+                            { label: "Percentage (%)", value: "percentage" },
+                            { label: "Fixed ($)", value: "fixed" },
+                          ]}
+                          selected={[offerType]}
+                          onChange={(selected) => setOfferType(selected[0] as "percentage" | "fixed")}
+                          allowMultiple={false}
+                        />
+                      </div>
+                    </HStack>
+
+                    <Checkbox
+                      label="Only make my discount offers available to new customers"
+                      checked={newCustomersOnly}
+                      onChange={setNewCustomersOnly}
+                      helpText="If enabled, Recip will create offers intended for first-time customers only."
+                    />
+                  </VStack>
+                </Card>
+
+                <Card sectioned>
+                  <VStack gap="5">
+                    <Text as="h2" variant="headingMd">
                       Matching
                     </Text>
 
@@ -400,20 +456,6 @@ export default function OnboardingPage() {
                       onChange={setFriendlyBrands}
                       multiline={3}
                       helpText="Add brand names, one per line. We’ll use this as a signal, but matches are still based on fit and performance."
-                    />
-                  </VStack>
-                </Card>
-
-                <Card sectioned>
-                  <VStack gap="4">
-                    <Text as="h2" variant="headingMd">
-                      Offer rules
-                    </Text>
-                    <Checkbox
-                      label="Only make my discount offers available to new customers"
-                      checked={newCustomersOnly}
-                      onChange={setNewCustomersOnly}
-                      helpText="If enabled, Recip will create offers intended for first-time customers only."
                     />
                   </VStack>
                 </Card>
@@ -475,6 +517,9 @@ export default function OnboardingPage() {
                     logoUrl={previewLogoUrl}
                     brandName={brandName}
                     description={description}
+                    offerValue={offerValue}
+                    offerType={offerType}
+                    newCustomersOnly={newCustomersOnly}
                   />
                 </VStack>
               </Card>
