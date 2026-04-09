@@ -50,14 +50,18 @@ function LogoPreview({ logoUrl, brandName }: { logoUrl?: string; brandName: stri
   const initials = brandName.trim().charAt(0).toUpperCase() || "R";
 
   if (logoUrl) {
-    return <Thumbnail source={logoUrl} alt={brandName || "Brand logo"} size="large" />;
+    return (
+      <div style={{ "--pc-thumbnail-large-size": "8rem", border: "none" } as React.CSSProperties}>
+        <Thumbnail source={logoUrl} alt={brandName || "Brand logo"} size="large" />
+      </div>
+    );
   }
 
   return (
     <div
       style={{
-        width: 72,
-        height: 72,
+        width: 128, // 8rem = 128px
+        height: 128,
         borderRadius: 16,
         background: "#E2E8F0",
         display: "flex",
