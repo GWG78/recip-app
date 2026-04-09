@@ -190,12 +190,19 @@ function HStack({
 
 async function fetchShopLogoFromAdmin(adminGraphql: any) {
   try {
-    // Simplified query - just get shop name to verify connection works
+    // Since Shopify doesn't expose brand/logo data via Admin API,
+    // fetch the first product's image as a visual placeholder
     const response = await adminGraphql(
       `#graphql
       query {
-        shop {
-          name
+        products(first: 1) {
+          edges {
+            node {
+              featuredImage {
+                url
+              }
+            }
+          }
         }
       }`
     );
@@ -203,18 +210,20 @@ async function fetchShopLogoFromAdmin(adminGraphql: any) {
     const result = await response.json();
     
     if (result?.errors?.length) {
-      console.log(`[app.onboarding] shop query errors`, result.errors);
+      console.log(`[app.onboarding] product image query errors`, result.errors);
       return null;
     }
 
-    const shopName = result?.data?.shop?.name;
-    console.log(`[app.onboarding] connected to shop:`, shopName);
+    const imageUrl = result?.data?.products?.edges?.[0]?.node?.featuredImage?.url;
+    if (imageUrl) {
+      console.log(`[app.onboarding] found product image for preview`);
+      return imageUrl;
+    }
     
-    // Since Shopify Admin API doesn't expose logo/brand info,
-    // we'll let users provide it manually or try fetching from a public source
+    console.log(`[app.onboarding] no product images found`);
     return null;
   } catch (error) {
-    console.log(`[app.onboarding] shop query error`, error instanceof Error ? error.message : error);
+    console.log(`[app.onboarding] product query error`, error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -355,7 +364,7 @@ export default function OnboardingPage() {
                       label="Logo URL (optional)"
                       value={userLogoUrl}
                       onChange={setUserLogoUrl}
-                      helpText="We'll try to auto-detect your logo. You can edit or replace it here."
+                      helpText="We use your first product image as a placeholder. Add your brand logo URL to customize it."
                       error={logoUrlError}
                       placeholder="https://example.com/logo.png"
                     />
