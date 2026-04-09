@@ -113,15 +113,14 @@ function OfferPreviewCard({
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
         <LogoPreview logoUrl={logoUrl} brandName={displayName} />
         <div>
-          <Text as="p" variant="headingMd" style={{ margin: 0, fontSize: "1.2rem" }}>
-            {displayName}
-          </Text>
-          <Text as="p" variant="headingSm" style={{ marginTop: 4, fontStyle: "italic" }}>
-            {getOfferText()}
-          </Text>
+          <div style={{ margin: 0, fontSize: "1.2rem" }}>
+            <Text as="p" variant="headingMd">{displayName}</Text>
+          </div>
+          <div style={{ marginTop: 4, fontStyle: "italic" }}>
+            <Text as="p" variant="headingSm">{getOfferText()}</Text>
+          </div>
         </div>
       </div>
-
       <div
         style={{
           borderRadius: 18,
@@ -137,14 +136,11 @@ function OfferPreviewCard({
           <Text as="p" variant="bodyMd" fontWeight="bold">
             {displayName}
           </Text>
-          <Text
-            as="p"
-            variant="bodyMd"
-            color={description.trim() ? "subdued" : "subdued"}
-            style={{ marginTop: 8, whiteSpace: "pre-line" }}
-          >
-            {displayDescription}
-          </Text>
+          <div style={{ marginTop: 8, whiteSpace: "pre-line" }}>
+            <Text as="p" variant="bodyMd" color="subdued">
+              {displayDescription}
+            </Text>
+          </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 24 }}>
@@ -338,8 +334,8 @@ export default function OnboardingPage() {
           <Layout.Section oneHalf>
             <form onSubmit={handleSubmit}>
               <VStack gap="2.5">
-                <Card sectioned>
-                  <VStack gap="5">
+                <Card padding="500">
+                  <VStack gap="2.5">
                     <Text as="h2" variant="headingMd">
                       Brand basics
                     </Text>
@@ -354,6 +350,7 @@ export default function OnboardingPage() {
                       onChange={setBrandName}
                       error={brandNameError}
                       requiredIndicator
+                      autoComplete="off"
                     />
 
                     <TextField
@@ -363,6 +360,7 @@ export default function OnboardingPage() {
                       helpText="Add your brand logo. You can find your logo in Shopify Admin Settings > Brand > Logo, or upload it to a CDN and paste the URL here."
                       error={logoUrlError}
                       placeholder="https://example.com/logo.png"
+                      autoComplete="off"
                     />
 
                     <TextField
@@ -373,17 +371,18 @@ export default function OnboardingPage() {
                       helpText="In 1–3 sentences, tell us what you sell and who it’s for."
                       error={descriptionError}
                       requiredIndicator
+                      autoComplete="off"
                     />
                   </VStack>
                 </Card>
 
-                <Card sectioned>
-                  <VStack gap="5">
+                <Card padding="500">
+                  <VStack gap="2.5">
                     <Text as="h2" variant="headingMd">
                       Your Offer
                     </Text>
 
-                    <HStack gap="4" align="end">
+                    <HStack gap="2.5" align="end">
                       <div style={{ flex: 1 }}>
                         <TextField
                           label="Discount amount"
@@ -391,6 +390,7 @@ export default function OnboardingPage() {
                           onChange={setOfferValue}
                           placeholder="e.g., 25 or 30"
                           type="number"
+                          autoComplete="off"
                         />
                       </div>
                       <div style={{ minWidth: 120 }}>
@@ -416,8 +416,8 @@ export default function OnboardingPage() {
                   </VStack>
                 </Card>
 
-                <Card sectioned>
-                  <VStack gap="5">
+                <Card padding="500">
+                  <VStack gap="2.5">
                     <Text as="h2" variant="headingMd">
                       Matching
                     </Text>
@@ -441,6 +441,7 @@ export default function OnboardingPage() {
                       multiline={3}
                       helpText="Add up to 3 product links, one per line, so we can match your brand more accurately."
                       error={productUrlsError}
+                      autoComplete="off"
                     />
 
                     <TextField
@@ -449,12 +450,13 @@ export default function OnboardingPage() {
                       onChange={setFriendlyBrands}
                       multiline={3}
                       helpText="Add brand names, one per line. We’ll use this as a signal, but matches are still based on fit and performance."
+                      autoComplete="off"
                     />
                   </VStack>
                 </Card>
 
-                <Card sectioned>
-                  <VStack gap="4">
+                <Card padding="500">
+                  <VStack gap="2.5">
                     <Text as="h2" variant="headingMd">
                       Network participation
                     </Text>
@@ -493,9 +495,9 @@ export default function OnboardingPage() {
           </Layout.Section>
 
           <Layout.Section oneHalf>
-            <div style={{ position: "sticky", top: 0 }}>
-              <Card sectioned>
-                <VStack gap="4">
+            <div style={{ position: "sticky", top: 0, alignSelf: "flex-start" }}>
+              <Card padding="500">
+                <VStack gap="2.5">
                   <HStack align="center" justify="space-between">
                     <Text as="h2" variant="headingMd">
                       Live preview
@@ -512,8 +514,8 @@ export default function OnboardingPage() {
                 </VStack>
               </Card>
 
-              <Card sectioned>
-                <VStack gap="3">
+              <Card padding="500">
+                <VStack gap="2.5">
                   <Text as="h3" variant="headingMd">
                     How Recip works
                   </Text>

@@ -1727,22 +1727,26 @@ function OfferPreviewCard({
         logoUrl,
         brandName: displayName
       }), /* @__PURE__ */ jsxs("div", {
-        children: [/* @__PURE__ */ jsx(Text, {
-          as: "p",
-          variant: "headingMd",
+        children: [/* @__PURE__ */ jsx("div", {
           style: {
             margin: 0,
             fontSize: "1.2rem"
           },
-          children: displayName
-        }), /* @__PURE__ */ jsx(Text, {
-          as: "p",
-          variant: "headingSm",
+          children: /* @__PURE__ */ jsx(Text, {
+            as: "p",
+            variant: "headingMd",
+            children: displayName
+          })
+        }), /* @__PURE__ */ jsx("div", {
           style: {
             marginTop: 4,
             fontStyle: "italic"
           },
-          children: getOfferText()
+          children: /* @__PURE__ */ jsx(Text, {
+            as: "p",
+            variant: "headingSm",
+            children: getOfferText()
+          })
         })]
       })]
     }), /* @__PURE__ */ jsxs("div", {
@@ -1761,15 +1765,17 @@ function OfferPreviewCard({
           variant: "bodyMd",
           fontWeight: "bold",
           children: displayName
-        }), /* @__PURE__ */ jsx(Text, {
-          as: "p",
-          variant: "bodyMd",
-          color: description.trim() ? "subdued" : "subdued",
+        }), /* @__PURE__ */ jsx("div", {
           style: {
             marginTop: 8,
             whiteSpace: "pre-line"
           },
-          children: displayDescription
+          children: /* @__PURE__ */ jsx(Text, {
+            as: "p",
+            variant: "bodyMd",
+            color: "subdued",
+            children: displayDescription
+          })
         })]
       }), /* @__PURE__ */ jsx("div", {
         style: {
@@ -1935,9 +1941,9 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
             children: /* @__PURE__ */ jsxs(VStack, {
               gap: "2.5",
               children: [/* @__PURE__ */ jsx(Card, {
-                sectioned: true,
+                padding: "500",
                 children: /* @__PURE__ */ jsxs(VStack, {
-                  gap: "5",
+                  gap: "2.5",
                   children: [/* @__PURE__ */ jsx(Text, {
                     as: "h2",
                     variant: "headingMd",
@@ -1952,14 +1958,16 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
                     value: brandName,
                     onChange: setBrandName,
                     error: brandNameError,
-                    requiredIndicator: true
+                    requiredIndicator: true,
+                    autoComplete: "off"
                   }), /* @__PURE__ */ jsx(TextField, {
                     label: "Logo URL (optional)",
                     value: userLogoUrl,
                     onChange: setUserLogoUrl,
                     helpText: "Add your brand logo. You can find your logo in Shopify Admin Settings > Brand > Logo, or upload it to a CDN and paste the URL here.",
                     error: logoUrlError,
-                    placeholder: "https://example.com/logo.png"
+                    placeholder: "https://example.com/logo.png",
+                    autoComplete: "off"
                   }), /* @__PURE__ */ jsx(TextField, {
                     label: "Describe your products",
                     value: description,
@@ -1967,19 +1975,20 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
                     multiline: 4,
                     helpText: "In 1–3 sentences, tell us what you sell and who it’s for.",
                     error: descriptionError,
-                    requiredIndicator: true
+                    requiredIndicator: true,
+                    autoComplete: "off"
                   })]
                 })
               }), /* @__PURE__ */ jsx(Card, {
-                sectioned: true,
+                padding: "500",
                 children: /* @__PURE__ */ jsxs(VStack, {
-                  gap: "5",
+                  gap: "2.5",
                   children: [/* @__PURE__ */ jsx(Text, {
                     as: "h2",
                     variant: "headingMd",
                     children: "Your Offer"
                   }), /* @__PURE__ */ jsxs(HStack, {
-                    gap: "4",
+                    gap: "2.5",
                     align: "end",
                     children: [/* @__PURE__ */ jsx("div", {
                       style: {
@@ -1990,7 +1999,8 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
                         value: offerValue,
                         onChange: setOfferValue,
                         placeholder: "e.g., 25 or 30",
-                        type: "number"
+                        type: "number",
+                        autoComplete: "off"
                       })
                     }), /* @__PURE__ */ jsx("div", {
                       style: {
@@ -2018,9 +2028,9 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
                   })]
                 })
               }), /* @__PURE__ */ jsx(Card, {
-                sectioned: true,
+                padding: "500",
                 children: /* @__PURE__ */ jsxs(VStack, {
-                  gap: "5",
+                  gap: "2.5",
                   children: [/* @__PURE__ */ jsx(Text, {
                     as: "h2",
                     variant: "headingMd",
@@ -2043,19 +2053,21 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
                     onChange: setProductUrls,
                     multiline: 3,
                     helpText: "Add up to 3 product links, one per line, so we can match your brand more accurately.",
-                    error: productUrlsError
+                    error: productUrlsError,
+                    autoComplete: "off"
                   }), /* @__PURE__ */ jsx(TextField, {
                     label: "Friendly brands you'd like to be matched with",
                     value: friendlyBrands,
                     onChange: setFriendlyBrands,
                     multiline: 3,
-                    helpText: "Add brand names, one per line. We’ll use this as a signal, but matches are still based on fit and performance."
+                    helpText: "Add brand names, one per line. We’ll use this as a signal, but matches are still based on fit and performance.",
+                    autoComplete: "off"
                   })]
                 })
               }), /* @__PURE__ */ jsx(Card, {
-                sectioned: true,
+                padding: "500",
                 children: /* @__PURE__ */ jsxs(VStack, {
-                  gap: "4",
+                  gap: "2.5",
                   children: [/* @__PURE__ */ jsx(Text, {
                     as: "h2",
                     variant: "headingMd",
@@ -2098,12 +2110,13 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
           children: /* @__PURE__ */ jsxs("div", {
             style: {
               position: "sticky",
-              top: 0
+              top: 0,
+              alignSelf: "flex-start"
             },
             children: [/* @__PURE__ */ jsx(Card, {
-              sectioned: true,
+              padding: "500",
               children: /* @__PURE__ */ jsxs(VStack, {
-                gap: "4",
+                gap: "2.5",
                 children: [/* @__PURE__ */ jsx(HStack, {
                   align: "center",
                   justify: "space-between",
@@ -2122,9 +2135,9 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
                 })]
               })
             }), /* @__PURE__ */ jsx(Card, {
-              sectioned: true,
+              padding: "500",
               children: /* @__PURE__ */ jsxs(VStack, {
-                gap: "3",
+                gap: "2.5",
                 children: [/* @__PURE__ */ jsx(Text, {
                   as: "h3",
                   variant: "headingMd",
@@ -2237,7 +2250,7 @@ const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePrope
   __proto__: null,
   loader
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-DzgJ9FzB.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-C3-JMdhV.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.scopes_update": { "id": "routes/webhooks.app.scopes_update", "parentId": "root", "path": "webhooks/app/scopes_update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.scopes_update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app_uninstalled": { "id": "routes/webhooks.app_uninstalled", "parentId": "root", "path": "webhooks/app_uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app_uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.orders.create": { "id": "routes/webhooks.orders.create", "parentId": "root", "path": "webhooks/orders/create", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.orders.create-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.events.impression": { "id": "routes/api.events.impression", "parentId": "root", "path": "api/events/impression", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.events.impression-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands": { "id": "routes/api.friendly-brands", "parentId": "root", "path": "api/friendly-brands", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands.$id": { "id": "routes/api.friendly-brands.$id", "parentId": "routes/api.friendly-brands", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.onboarding": { "id": "routes/api.onboarding", "parentId": "root", "path": "api/onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.onboarding-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.settings": { "id": "routes/api.settings", "parentId": "root", "path": "api/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.settings-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.offers": { "id": "routes/api.offers", "parentId": "root", "path": "api/offers", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.offers-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.login": { "id": "routes/auth.login", "parentId": "root", "path": "auth/login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-CuZb7FNa.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/r.$offerId": { "id": "routes/r.$offerId", "parentId": "root", "path": "r/:offerId", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/r._offerId-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-BTyQ6t07.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.additional": { "id": "routes/app.additional", "parentId": "routes/app", "path": "additional", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.additional-BHY5xze9.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.onboarding": { "id": "routes/app.onboarding", "parentId": "routes/app", "path": "onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.onboarding-BdEQzWMy.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": ["/assets/app-UBlowCeV.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.html": { "id": "routes/app.html", "parentId": "routes/app", "path": "html", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/app.html-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-0188bef3.js", "version": "0188bef3", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-DzgJ9FzB.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-C3-JMdhV.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.scopes_update": { "id": "routes/webhooks.app.scopes_update", "parentId": "root", "path": "webhooks/app/scopes_update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.scopes_update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app_uninstalled": { "id": "routes/webhooks.app_uninstalled", "parentId": "root", "path": "webhooks/app_uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app_uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.orders.create": { "id": "routes/webhooks.orders.create", "parentId": "root", "path": "webhooks/orders/create", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.orders.create-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.events.impression": { "id": "routes/api.events.impression", "parentId": "root", "path": "api/events/impression", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.events.impression-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands": { "id": "routes/api.friendly-brands", "parentId": "root", "path": "api/friendly-brands", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands.$id": { "id": "routes/api.friendly-brands.$id", "parentId": "routes/api.friendly-brands", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.onboarding": { "id": "routes/api.onboarding", "parentId": "root", "path": "api/onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.onboarding-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.settings": { "id": "routes/api.settings", "parentId": "root", "path": "api/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.settings-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.offers": { "id": "routes/api.offers", "parentId": "root", "path": "api/offers", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.offers-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.login": { "id": "routes/auth.login", "parentId": "root", "path": "auth/login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-CuZb7FNa.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/r.$offerId": { "id": "routes/r.$offerId", "parentId": "root", "path": "r/:offerId", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/r._offerId-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-BTyQ6t07.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.additional": { "id": "routes/app.additional", "parentId": "routes/app", "path": "additional", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.additional-BHY5xze9.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.onboarding": { "id": "routes/app.onboarding", "parentId": "routes/app", "path": "onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.onboarding-DExW1ocB.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": ["/assets/app-UBlowCeV.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.html": { "id": "routes/app.html", "parentId": "routes/app", "path": "html", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/app.html-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-f170c4f8.js", "version": "f170c4f8", "sri": void 0 };
 const assetsBuildDirectory = "build/client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "unstable_subResourceIntegrity": false, "unstable_trailingSlashAwareDataRequests": false, "unstable_previewServerPrerendering": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
