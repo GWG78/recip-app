@@ -218,13 +218,31 @@ async function fetchShopBrandLogo(shop: string | undefined, accessToken: string 
       body: JSON.stringify({ query }),
     });
 
+    const json = await response.json().catch((error) => {
+      console.log(`[app.onboarding] shop=${shop} logo fetch invalid JSON`, {
+        status: response.status,
+        error,
+      });
+      return null;
+    });
+
     if (!response.ok) {
+      console.log(`[app.onboarding] shop=${shop} logo fetch failed`, {
+        status: response.status,
+        body: json,
+      });
       return null;
     }
 
-    const json = await response.json();
-    return json?.data?.shop?.brand?.logo?.image?.url ?? null;
-  } catch {
+    if (json?.errors?.length) {
+      console.log(`[app.onboarding] shop=${shop} logo query errors`, json.errors);
+    }
+
+    const logoUrl = json?.data?.shop?.brand?.logo?.image?.url ?? null;
+    console.log(`[app.onboarding] shop=${shop} logo fetched`, { logoUrl });
+    return logoUrl;
+  } catch (error) {
+    console.log(`[app.onboarding] shop=${shop} logo fetch error`, error);
     return null;
   }
 }
@@ -234,32 +252,57 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shopParam = url.searchParams.get("shop") ?? undefined;
   let logoUrl: string | null = null;
 
-  try {
-    const { session } = await authenticate.admin(request);
-    const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
-    const shopDomain = (session as unknown as { shop?: string | null }).shop ?? shopParam;
+  console.log(`[app.onboarding] loader starting`, {
+    shopParam,
+    url: request.url,
+    userAgent: request.headers.get('user-agent'),
+    referer: request.headers.get('referer'),
+  });
 
-    if (shopDomain && accessToken) {
-      logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
-    } else if (shopDomain) {
-      const existingShop = await db.shop.findUnique({
-        where: { shopDomain },
-      });
-      if (existingShop?.accessToken) {
-        logoUrl = await fetchShopBrandLogo(shopDomain, existingShop.accessToken);
-      }
-    }
-  } catch {
-    if (shopParam) {
+  // First try to get logo using shop parameter from database
+  if (shopParam) {
+    try {
       const existingShop = await db.shop.findUnique({
         where: { shopDomain: shopParam },
+        select: { accessToken: true },
       });
+
       if (existingShop?.accessToken) {
+        console.log(`[app.onboarding] found shop in database, fetching logo`);
         logoUrl = await fetchShopBrandLogo(shopParam, existingShop.accessToken);
+      } else {
+        console.log(`[app.onboarding] shop not found in database or no access token`);
       }
+    } catch (dbError) {
+      console.log(`[app.onboarding] database error`, dbError);
     }
   }
 
+  // Fallback to session authentication
+  if (!logoUrl) {
+    try {
+      const { session } = await authenticate.admin(request);
+      const accessToken = (session as unknown as { accessToken?: string | null }).accessToken ?? null;
+      const shopDomain = (session as unknown as { shop?: string | null }).shop ?? shopParam;
+
+      console.log(`[app.onboarding] session authenticated`, {
+        shopDomain,
+        hasAccessToken: Boolean(accessToken),
+        sessionShop: (session as unknown as { shop?: string | null }).shop,
+      });
+
+      if (shopDomain && accessToken) {
+        logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
+      }
+    } catch (error) {
+      console.log(`[app.onboarding] authenticate.admin failed`, {
+        error: error instanceof Error ? error.message : error,
+        shopParam,
+      });
+    }
+  }
+
+  console.log(`[app.onboarding] loader complete`, { logoUrl });
   return Response.json({ logoUrl });
 };
 

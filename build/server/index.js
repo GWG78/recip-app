@@ -2,7 +2,7 @@ var _a;
 import { jsx, jsxs } from "react/jsx-runtime";
 import { PassThrough } from "stream";
 import { renderToPipeableStream } from "react-dom/server";
-import { ServerRouter, UNSAFE_withComponentProps, Meta, Links, Outlet, ScrollRestoration, Scripts, useLoaderData, useActionData, Form, redirect, UNSAFE_withErrorBoundaryProps, useRouteError } from "react-router";
+import { ServerRouter, UNSAFE_withComponentProps, Meta, Links, Outlet, ScrollRestoration, Scripts, useLoaderData, useActionData, Form, useLocation, UNSAFE_withErrorBoundaryProps, useRouteError } from "react-router";
 import { createReadableStreamFromReadable } from "@react-router/node";
 import { isbot } from "isbot";
 import "@shopify/shopify-app-react-router/adapters/node";
@@ -12,6 +12,7 @@ import { PrismaClient, ReferralEventType } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
+import { AppProvider as AppProvider$1, Page, Layout, Text, Card, TextField, ChoiceList, Checkbox, Banner, Button, Thumbnail } from "@shopify/polaris";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 if (process.env.NODE_ENV !== "production") {
@@ -110,7 +111,7 @@ const route0 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   __proto__: null,
   default: root
 }, Symbol.toStringTag, { value: "Module" }));
-const action$7 = async ({
+const action$8 = async ({
   request
 }) => {
   const {
@@ -135,9 +136,9 @@ const action$7 = async ({
 };
 const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$7
+  action: action$8
 }, Symbol.toStringTag, { value: "Module" }));
-const action$6 = async ({
+const action$7 = async ({
   request
 }) => {
   const {
@@ -157,11 +158,11 @@ const action$6 = async ({
 };
 const route2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$6
+  action: action$7
 }, Symbol.toStringTag, { value: "Module" }));
 const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$6
+  action: action$7
 }, Symbol.toStringTag, { value: "Module" }));
 function buildSheetsUrl(baseUrl, apiKey) {
   const missing = [];
@@ -175,7 +176,11 @@ function buildSheetsUrl(baseUrl, apiKey) {
 }
 async function postToSheets(baseUrl, payload) {
   const endpoint = buildSheetsUrl(baseUrl, process.env.GOOGLE_SHEETS_API_KEY);
-  if (!endpoint) return false;
+  if (!endpoint) {
+    console.warn("Sheets sync skipped: endpoint missing");
+    return false;
+  }
+  console.log("[Sheets] POST", { endpoint, payload });
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -183,8 +188,10 @@ async function postToSheets(baseUrl, payload) {
   });
   if (!response.ok) {
     const body = await response.text();
+    console.error("[Sheets] POST failed", { endpoint, status: response.status, statusText: response.statusText, body });
     throw new Error(`${response.status} ${response.statusText} - ${body}`);
   }
+  console.log("[Sheets] POST success", { endpoint, status: response.status });
   return true;
 }
 async function sendFriendlyBrandLead(args) {
@@ -300,7 +307,8 @@ async function resolveAdminClient(toShopId, injectedClient) {
 async function createShopifyDiscountCode(args) {
   var _a2, _b, _c;
   const startsAt = /* @__PURE__ */ new Date();
-  const endsAt = new Date(startsAt.getTime() + args.expiryHours * 60 * 60 * 1e3);
+  const defaultExpiryHours = args.expiryHours ?? 365 * 24;
+  const endsAt = new Date(startsAt.getTime() + defaultExpiryHours * 60 * 60 * 1e3);
   const variables = {
     basicCodeDiscount: {
       title: args.code,
@@ -353,7 +361,7 @@ async function ensureDiscountPool(toShopId, options = {}) {
   const settingsDiscountValue = settingsDiscountType === "PERCENTAGE" && rawSettingsValue <= 1 ? rawSettingsValue * 100 : rawSettingsValue;
   const poolSize = options.poolSize ?? DEFAULT_POOL_SIZE;
   const prefix = options.prefix ?? "RECIP";
-  const expiryHours = options.expiryHours ?? DEFAULT_EXPIRY_HOURS;
+  options.expiryHours ?? DEFAULT_EXPIRY_HOURS;
   const discountKind = options.discountKind ?? settingsDiscountType;
   const discountValue = options.discountValue ?? settingsDiscountValue;
   const adminClient = await resolveAdminClient(toShopId, options.adminClient);
@@ -375,13 +383,14 @@ async function ensureDiscountPool(toShopId, options = {}) {
     });
     if (currentPool >= poolSize) break;
     const code = generateCode(prefix);
+    const generatedGid = `gid://shopify/DiscountCode/${code}`;
     try {
       const shopifyResult = await createShopifyDiscountCode({
         adminClient,
         code,
         discountKind,
-        discountValue,
-        expiryHours
+        discountValue
+        // Don't pass expiryHours for pool codes - they should last indefinitely
       });
       await prisma.discountCode.create({
         data: {
@@ -394,10 +403,29 @@ async function ensureDiscountPool(toShopId, options = {}) {
         }
       });
       createdCodes.push(code);
-      console.log(`[pool] toShopId=${toShopId} created ${code}`);
+      console.log(`[pool] toShopId=${toShopId} created ${code} (Shopify)`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[pool] toShopId=${toShopId} failed creating code ${code}: ${message}`);
+      console.error(`[pool] toShopId=${toShopId} failed creating code ${code} in Shopify: ${message}`);
+      try {
+        const now = /* @__PURE__ */ new Date();
+        const endsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1e3);
+        await prisma.discountCode.create({
+          data: {
+            toShopId,
+            code,
+            shopifyDiscountGid: generatedGid,
+            state: "POOL",
+            startsAt: now,
+            endsAt
+          }
+        });
+        createdCodes.push(code);
+        console.log(`[pool] toShopId=${toShopId} created ${code} (DB only, Shopify access not available)`);
+      } catch (dbError) {
+        const dbMessage = dbError instanceof Error ? dbError.message : String(dbError);
+        console.error(`[pool] toShopId=${toShopId} failed creating DB record for ${code}: ${dbMessage}`);
+      }
     }
   }
   const finalPool = await prisma.discountCode.count({
@@ -420,7 +448,7 @@ function extractOrderDiscountCodes(payload) {
   }).filter((code) => Boolean(code))) ?? [];
   return [.../* @__PURE__ */ new Set([...fromDiscountCodes, ...fromApplications])];
 }
-const action$5 = async ({
+const action$6 = async ({
   request
 }) => {
   var _a2, _b;
@@ -526,11 +554,12 @@ const action$5 = async ({
 };
 const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$5
+  action: action$6
 }, Symbol.toStringTag, { value: "Module" }));
-async function action$4({
+async function action$5({
   request
 }) {
+  var _a2, _b;
   if (request.method !== "POST") {
     return Response.json({
       error: "Method not allowed"
@@ -574,7 +603,7 @@ async function action$4({
       deduped: true
     });
   }
-  await prisma.referralEvent.create({
+  const event = await prisma.referralEvent.create({
     data: {
       type: ReferralEventType.IMPRESSION,
       fromShopId: fromShopId ?? toShopId,
@@ -584,17 +613,52 @@ async function action$4({
         offerId,
         orderId
       }
+    },
+    include: {
+      fromShop: {
+        select: {
+          shopDomain: true
+        }
+      },
+      toShop: {
+        select: {
+          shopDomain: true
+        }
+      }
     }
   });
+  try {
+    await sendReferralEventRow({
+      event_id: event.id,
+      event_type: "IMPRESSION",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      from_shop_domain: ((_a2 = event.fromShop) == null ? void 0 : _a2.shopDomain) ?? null,
+      to_shop_domain: ((_b = event.toShop) == null ? void 0 : _b.shopDomain) ?? null,
+      offer_id: offerId,
+      discount_code: null,
+      discount_code_id: null,
+      discount_state: null,
+      order_id: orderId,
+      order_number: null,
+      order_currency: null,
+      order_total: null,
+      line_item_count: null,
+      user_agent: request.headers.get("user-agent"),
+      referer: request.headers.get("referer"),
+      environment: process.env.NODE_ENV || null
+    });
+  } catch (error) {
+    console.error(`[api/events/impression] failed to sync to sheets: ${error.message}`);
+  }
   return Response.json({
     ok: true
   });
 }
 const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$4
+  action: action$5
 }, Symbol.toStringTag, { value: "Module" }));
-const loader$9 = async ({
+const loader$b = async ({
   request
 }) => {
   console.log("[friendly-brands] GET", request.url);
@@ -621,7 +685,7 @@ const loader$9 = async ({
   });
   return Response.json(brands);
 };
-const action$3 = async ({
+const action$4 = async ({
   request
 }) => {
   console.log("[friendly-brands] POST", request.url);
@@ -673,10 +737,10 @@ const action$3 = async ({
 };
 const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$3,
-  loader: loader$9
+  action: action$4,
+  loader: loader$b
 }, Symbol.toStringTag, { value: "Module" }));
-const action$2 = async ({
+const action$3 = async ({
   request,
   params
 }) => {
@@ -719,9 +783,82 @@ const action$2 = async ({
 };
 const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$2
+  action: action$3
 }, Symbol.toStringTag, { value: "Module" }));
-const loader$8 = async ({
+const loader$a = async ({
+  request
+}) => {
+  await authenticate.admin(request);
+  return Response.json({
+    ok: true
+  });
+};
+const action$2 = async ({
+  request
+}) => {
+  var _a2, _b, _c;
+  const {
+    session
+  } = await authenticate.admin(request);
+  if (request.method !== "POST") {
+    return Response.json({
+      error: "Method not allowed"
+    }, {
+      status: 405
+    });
+  }
+  const body = await request.json();
+  const brandName = (_a2 = body.brandName) == null ? void 0 : _a2.trim();
+  const websiteUrl = (_b = body.websiteUrl) == null ? void 0 : _b.trim();
+  const description = (_c = body.description) == null ? void 0 : _c.trim();
+  if (!brandName) {
+    return Response.json({
+      error: "Brand name is required."
+    }, {
+      status: 400
+    });
+  }
+  if (!websiteUrl) {
+    return Response.json({
+      error: "Website URL is required."
+    }, {
+      status: 400
+    });
+  }
+  if (!description) {
+    return Response.json({
+      error: "Description is required."
+    }, {
+      status: 400
+    });
+  }
+  if (!body.monthlyVolume) {
+    return Response.json({
+      error: "Monthly order volume is required."
+    }, {
+      status: 400
+    });
+  }
+  console.log("[onboarding] shop=", session.shop, {
+    brandName,
+    websiteUrl,
+    description,
+    productUrls: body.productUrls,
+    monthlyVolume: body.monthlyVolume,
+    friendlyBrands: body.friendlyBrands,
+    newCustomersOnly: Boolean(body.newCustomersOnly),
+    participateNetwork: Boolean(body.participateNetwork)
+  });
+  return Response.json({
+    ok: true
+  });
+};
+const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$2,
+  loader: loader$a
+}, Symbol.toStringTag, { value: "Module" }));
+const loader$9 = async ({
   request
 }) => {
   const {
@@ -850,10 +987,10 @@ const action$1 = async ({
   }
   return Response.json(settings);
 };
-const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$1,
-  loader: loader$8
+  loader: loader$9
 }, Symbol.toStringTag, { value: "Module" }));
 function normalizeDomain(value) {
   return value.toLowerCase().trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -864,7 +1001,7 @@ function buildOfferText(discountType, discountValue) {
   }
   return `${discountValue}% off your next order`;
 }
-const loader$7 = async ({
+const loader$8 = async ({
   request
 }) => {
   if (request.method === "OPTIONS") {
@@ -976,9 +1113,9 @@ const loader$7 = async ({
     }
   });
 };
-const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  loader: loader$7
+  loader: loader$8
 }, Symbol.toStringTag, { value: "Module" }));
 function loginErrorMessage(loginErrors) {
   if ((loginErrors == null ? void 0 : loginErrors.shop) === LoginErrorType.MissingShop) {
@@ -988,7 +1125,7 @@ function loginErrorMessage(loginErrors) {
   }
   return {};
 }
-const loader$6 = async ({
+const loader$7 = async ({
   request
 }) => {
   const errors = loginErrorMessage(await login(request));
@@ -1035,11 +1172,11 @@ const route$1 = UNSAFE_withComponentProps(function Auth() {
     })
   });
 });
-const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action,
   default: route$1,
-  loader: loader$6
+  loader: loader$7
 }, Symbol.toStringTag, { value: "Module" }));
 async function trackEventTx(tx, {
   type,
@@ -1106,9 +1243,17 @@ async function activateDiscountFromPool({
   expiryHours = EXPIRY_HOURS,
   adminClient
 }) {
-  await ensureDiscountPool(toShopId, { adminClient });
+  var _a2;
+  if (adminClient) {
+    try {
+      await ensureDiscountPool(toShopId, { adminClient });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[pool] failed to ensure pool for toShopId=${toShopId}: ${message}`);
+    }
+  }
   const now = /* @__PURE__ */ new Date();
-  const endsAt = new Date(now.getTime() + expiryHours * 60 * 60 * 1e3);
+  const endsAt = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1e3);
   const activatedCode = await prisma.$transaction(async (tx) => {
     const poolCode = await tx.discountCode.findFirst({
       where: {
@@ -1170,9 +1315,41 @@ async function activateDiscountFromPool({
   } else {
     console.log(`[pool] skipping replenish for toShopId=${toShopId} (no admin access)`);
   }
+  try {
+    const toShop = await prisma.shop.findUnique({
+      where: { id: toShopId },
+      select: { shopDomain: true }
+    });
+    const fromShop = fromShopId ? await prisma.shop.findUnique({
+      where: { id: fromShopId },
+      select: { shopDomain: true }
+    }) : null;
+    await sendReferralEventRow({
+      event_id: activatedCode.id,
+      event_type: "CLICK",
+      timestamp: ((_a2 = activatedCode.activatedAt) == null ? void 0 : _a2.toISOString()) || (/* @__PURE__ */ new Date()).toISOString(),
+      from_shop_domain: (fromShop == null ? void 0 : fromShop.shopDomain) ?? null,
+      to_shop_domain: (toShop == null ? void 0 : toShop.shopDomain) ?? null,
+      offer_id: offerId,
+      discount_code: activatedCode.code,
+      discount_code_id: activatedCode.id,
+      discount_state: "ACTIVE",
+      order_id: orderId ?? null,
+      order_number: null,
+      order_currency: null,
+      order_total: null,
+      line_item_count: null,
+      user_agent: null,
+      referer: null,
+      environment: process.env.NODE_ENV || null
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[activation] failed to sync CLICK event to sheets: ${message}`);
+  }
   return activatedCode;
 }
-async function loader$5({
+async function loader$6({
   params,
   request
 }) {
@@ -1225,104 +1402,84 @@ async function loader$5({
     offerId,
     orderId,
     adminClient
+    // This will be undefined if resolveAdminClient failed
   });
   const redirectUrl = `https://${toShop.shopDomain}/discount/${discount.code}?redirect=/`;
   return Response.redirect(redirectUrl);
 }
-const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  loader: loader$5
-}, Symbol.toStringTag, { value: "Module" }));
-const index = "_index_12o3y_1";
-const heading = "_heading_12o3y_11";
-const text = "_text_12o3y_12";
-const content = "_content_12o3y_22";
-const form = "_form_12o3y_27";
-const label = "_label_12o3y_35";
-const input = "_input_12o3y_43";
-const button = "_button_12o3y_47";
-const list = "_list_12o3y_51";
-const styles = {
-  index,
-  heading,
-  text,
-  content,
-  form,
-  label,
-  input,
-  button,
-  list
-};
-const loader$4 = async ({
-  request
-}) => {
-  const url = new URL(request.url);
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
-  }
-  return {
-    showForm: Boolean(login)
-  };
-};
-const route = UNSAFE_withComponentProps(function App2() {
-  const {
-    showForm
-  } = useLoaderData();
-  return /* @__PURE__ */ jsx("div", {
-    className: styles.index,
-    children: /* @__PURE__ */ jsxs("div", {
-      className: styles.content,
-      children: [/* @__PURE__ */ jsx("h1", {
-        className: styles.heading,
-        children: "A short heading about [your app]"
-      }), /* @__PURE__ */ jsx("p", {
-        className: styles.text,
-        children: "A tagline about [your app] that describes your value proposition."
-      }), showForm && /* @__PURE__ */ jsxs(Form, {
-        className: styles.form,
-        method: "post",
-        action: "/auth/login",
-        children: [/* @__PURE__ */ jsxs("label", {
-          className: styles.label,
-          children: [/* @__PURE__ */ jsx("span", {
-            children: "Shop domain"
-          }), /* @__PURE__ */ jsx("input", {
-            className: styles.input,
-            type: "text",
-            name: "shop"
-          }), /* @__PURE__ */ jsx("span", {
-            children: "e.g: my-shop-domain.myshopify.com"
-          })]
-        }), /* @__PURE__ */ jsx("button", {
-          className: styles.button,
-          type: "submit",
-          children: "Log in"
-        })]
-      }), /* @__PURE__ */ jsxs("ul", {
-        className: styles.list,
-        children: [/* @__PURE__ */ jsxs("li", {
-          children: [/* @__PURE__ */ jsx("strong", {
-            children: "Product feature"
-          }), ". Some detail about your feature and its benefit to your customer."]
-        }), /* @__PURE__ */ jsxs("li", {
-          children: [/* @__PURE__ */ jsx("strong", {
-            children: "Product feature"
-          }), ". Some detail about your feature and its benefit to your customer."]
-        }), /* @__PURE__ */ jsxs("li", {
-          children: [/* @__PURE__ */ jsx("strong", {
-            children: "Product feature"
-          }), ". Some detail about your feature and its benefit to your customer."]
-        })]
-      })]
-    })
-  });
-});
 const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  default: route,
-  loader: loader$4
+  loader: loader$6
 }, Symbol.toStringTag, { value: "Module" }));
-const loader$3 = async ({
+const loader$5 = async ({
+  request
+}) => {
+  await authenticate.admin(request);
+  return Response.json({});
+};
+const route = UNSAFE_withComponentProps(function Home() {
+  const location = useLocation();
+  const search = location.search || "";
+  return /* @__PURE__ */ jsxs("div", {
+    style: {
+      padding: 40,
+      maxWidth: 980,
+      margin: "0 auto",
+      fontFamily: "Inter, sans-serif"
+    },
+    children: [/* @__PURE__ */ jsx("h1", {
+      style: {
+        fontSize: 36,
+        marginBottom: 16
+      },
+      children: "Welcome to Recip"
+    }), /* @__PURE__ */ jsx("p", {
+      style: {
+        fontSize: 18,
+        lineHeight: 1.7,
+        marginBottom: 24
+      },
+      children: "This is your home landing page. Use the onboarding flow to connect your brand and configure your first partner offers."
+    }), /* @__PURE__ */ jsxs("div", {
+      style: {
+        display: "flex",
+        gap: 12,
+        flexWrap: "wrap"
+      },
+      children: [/* @__PURE__ */ jsx("a", {
+        href: `/app/onboarding${search}`,
+        style: {
+          display: "inline-block",
+          padding: "12px 20px",
+          borderRadius: 10,
+          background: "#00695c",
+          color: "white",
+          textDecoration: "none",
+          fontWeight: 600
+        },
+        children: "Go to onboarding"
+      }), /* @__PURE__ */ jsx("a", {
+        href: `/app/additional${search}`,
+        style: {
+          display: "inline-block",
+          padding: "12px 20px",
+          borderRadius: 10,
+          background: "#f4f6f8",
+          color: "#111827",
+          textDecoration: "none",
+          fontWeight: 600
+        },
+        children: "View additional page"
+      })]
+    })]
+  });
+});
+const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: route,
+  loader: loader$5
+}, Symbol.toStringTag, { value: "Module" }));
+const loader$4 = async ({
   request
 }) => {
   await authenticate.admin(request);
@@ -1331,76 +1488,80 @@ const loader$3 = async ({
 const headers$1 = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
-const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   headers: headers$1,
-  loader: loader$3
+  loader: loader$4
 }, Symbol.toStringTag, { value: "Module" }));
-const loader$2 = async ({
+const loader$3 = async ({
   request
 }) => {
-  const {
-    session,
-    admin
-  } = await authenticate.admin(request);
-  const adminClient = {
-    graphql: admin.graphql.bind(admin)
-  };
-  const sessionAccessToken = session.accessToken ?? null;
-  const sessionScope = session.scope ?? null;
-  const existingShop = await prisma.shop.findUnique({
-    where: {
-      shopDomain: session.shop
-    }
-  });
-  if (!existingShop) {
-    const createdShop = await prisma.shop.create({
-      data: {
-        shopDomain: session.shop,
-        installed: true,
-        uninstalledAt: null,
-        accessToken: sessionAccessToken,
-        scope: sessionScope
-      }
-    });
-    await sendInstallLead({
-      shopDomain: session.shop
-    });
-    await ensureDiscountPool(createdShop.id, {
-      adminClient
-    });
-  } else {
-    await prisma.shop.update({
+  let apiKey = process.env.SHOPIFY_API_KEY || "";
+  try {
+    const {
+      session,
+      admin
+    } = await authenticate.admin(request);
+    const adminClient = {
+      graphql: admin.graphql.bind(admin)
+    };
+    const sessionAccessToken = session.accessToken ?? null;
+    const sessionScope = session.scope ?? null;
+    const existingShop = await prisma.shop.findUnique({
       where: {
-        id: existingShop.id
-      },
-      data: {
-        ...sessionAccessToken ? {
-          accessToken: sessionAccessToken
-        } : {},
-        ...sessionScope ? {
-          scope: sessionScope
-        } : {},
-        ...!existingShop.installed || existingShop.uninstalledAt ? {
-          installed: true,
-          uninstalledAt: null
-        } : {}
+        shopDomain: session.shop
       }
     });
-    if (!existingShop.installed || existingShop.uninstalledAt) {
+    if (!existingShop) {
+      const createdShop = await prisma.shop.create({
+        data: {
+          shopDomain: session.shop,
+          installed: true,
+          uninstalledAt: null,
+          accessToken: sessionAccessToken,
+          scope: sessionScope
+        }
+      });
       await sendInstallLead({
         shopDomain: session.shop
       });
-      await ensureDiscountPool(existingShop.id, {
+      await ensureDiscountPool(createdShop.id, {
         adminClient
       });
+    } else {
+      await prisma.shop.update({
+        where: {
+          id: existingShop.id
+        },
+        data: {
+          ...sessionAccessToken ? {
+            accessToken: sessionAccessToken
+          } : {},
+          ...sessionScope ? {
+            scope: sessionScope
+          } : {},
+          ...!existingShop.installed || existingShop.uninstalledAt ? {
+            installed: true,
+            uninstalledAt: null
+          } : {}
+        }
+      });
+      if (!existingShop.installed || existingShop.uninstalledAt) {
+        await sendInstallLead({
+          shopDomain: session.shop
+        });
+        await ensureDiscountPool(existingShop.id, {
+          adminClient
+        });
+      }
     }
+  } catch {
   }
   return {
-    apiKey: process.env.SHOPIFY_API_KEY || ""
+    apiKey
   };
 };
-const app = UNSAFE_withComponentProps(function App3() {
+const app = UNSAFE_withComponentProps(function App2() {
   const {
     apiKey
   } = useLoaderData();
@@ -1411,6 +1572,9 @@ const app = UNSAFE_withComponentProps(function App3() {
       children: [/* @__PURE__ */ jsx("s-link", {
         href: "/app",
         children: "Home"
+      }), /* @__PURE__ */ jsx("s-link", {
+        href: "/app/onboarding",
+        children: "Onboarding"
       }), /* @__PURE__ */ jsx("s-link", {
         href: "/app/additional",
         children: "Additional page"
@@ -1424,12 +1588,12 @@ const ErrorBoundary = UNSAFE_withErrorBoundaryProps(function ErrorBoundary2() {
 const headers = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
-const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   ErrorBoundary,
   default: app,
   headers,
-  loader: loader$2
+  loader: loader$3
 }, Symbol.toStringTag, { value: "Module" }));
 const app_additional = UNSAFE_withComponentProps(function AdditionalPage() {
   return /* @__PURE__ */ jsxs("s-page", {
@@ -1466,26 +1630,630 @@ const app_additional = UNSAFE_withComponentProps(function AdditionalPage() {
     })]
   });
 });
-const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: app_additional
+}, Symbol.toStringTag, { value: "Module" }));
+const Polaris = /* @__PURE__ */ JSON.parse('{"ActionMenu":{"Actions":{"moreActions":"More actions"},"RollupActions":{"rollupButton":"View actions"}},"ActionList":{"SearchField":{"clearButtonLabel":"Clear","search":"Search","placeholder":"Search actions"}},"Avatar":{"label":"Avatar","labelWithInitials":"Avatar with initials {initials}"},"Autocomplete":{"spinnerAccessibilityLabel":"Loading","ellipsis":"{content}…"},"Badge":{"PROGRESS_LABELS":{"incomplete":"Incomplete","partiallyComplete":"Partially complete","complete":"Complete"},"STATUS_LABELS":{"info":"Info","success":"Success","warning":"Warning","critical":"Critical","attention":"Attention","new":"New","readOnly":"Read-only","enabled":"Enabled"},"progressAndStatus":"{statusLabel} {progressLabel}"},"Banner":{"dismissButton":"Dismiss notification"},"Button":{"spinnerAccessibilityLabel":"Loading","connectedDisclosureAccessibilityLabel":"Related actions"},"Common":{"checkbox":"checkbox","undo":"Undo","cancel":"Cancel","clear":"Clear","close":"Close","submit":"Submit","more":"More"},"ContextualSaveBar":{"save":"Save","discard":"Discard"},"DataTable":{"sortAccessibilityLabel":"sort {direction} by","navAccessibilityLabel":"Scroll table {direction} one column","totalsRowHeading":"Totals","totalRowHeading":"Total"},"DatePicker":{"previousMonth":"Show previous month, {previousMonthName} {showPreviousYear}","nextMonth":"Show next month, {nextMonth} {nextYear}","today":"Today ","start":"Start of range","end":"End of range","months":{"january":"January","february":"February","march":"March","april":"April","may":"May","june":"June","july":"July","august":"August","september":"September","october":"October","november":"November","december":"December"},"days":{"monday":"Monday","tuesday":"Tuesday","wednesday":"Wednesday","thursday":"Thursday","friday":"Friday","saturday":"Saturday","sunday":"Sunday"},"daysAbbreviated":{"monday":"Mo","tuesday":"Tu","wednesday":"We","thursday":"Th","friday":"Fr","saturday":"Sa","sunday":"Su"}},"DiscardConfirmationModal":{"title":"Discard all unsaved changes","message":"If you discard changes, you’ll delete any edits you made since you last saved.","primaryAction":"Discard changes","secondaryAction":"Continue editing"},"DropZone":{"single":{"overlayTextFile":"Drop file to upload","overlayTextImage":"Drop image to upload","overlayTextVideo":"Drop video to upload","actionTitleFile":"Add file","actionTitleImage":"Add image","actionTitleVideo":"Add video","actionHintFile":"or drop file to upload","actionHintImage":"or drop image to upload","actionHintVideo":"or drop video to upload","labelFile":"Upload file","labelImage":"Upload image","labelVideo":"Upload video"},"allowMultiple":{"overlayTextFile":"Drop files to upload","overlayTextImage":"Drop images to upload","overlayTextVideo":"Drop videos to upload","actionTitleFile":"Add files","actionTitleImage":"Add images","actionTitleVideo":"Add videos","actionHintFile":"or drop files to upload","actionHintImage":"or drop images to upload","actionHintVideo":"or drop videos to upload","labelFile":"Upload files","labelImage":"Upload images","labelVideo":"Upload videos"},"errorOverlayTextFile":"File type is not valid","errorOverlayTextImage":"Image type is not valid","errorOverlayTextVideo":"Video type is not valid"},"EmptySearchResult":{"altText":"Empty search results"},"Frame":{"skipToContent":"Skip to content","navigationLabel":"Navigation","Navigation":{"closeMobileNavigationLabel":"Close navigation"}},"FullscreenBar":{"back":"Back","accessibilityLabel":"Exit fullscreen mode"},"Filters":{"moreFilters":"More filters","moreFiltersWithCount":"More filters ({count})","filter":"Filter {resourceName}","noFiltersApplied":"No filters applied","cancel":"Cancel","done":"Done","clearAllFilters":"Clear all filters","clear":"Clear","clearLabel":"Clear {filterName}","addFilter":"Add filter","clearFilters":"Clear all"},"FilterPill":{"clear":"Clear"},"IndexFilters":{"searchFilterTooltip":"Search and filter","searchFilterTooltipWithShortcut":"Search and filter (F)","searchFilterAccessibilityLabel":"Search and filter results","sort":"Sort your results","addView":"Add a new view","newView":"Custom search","SortButton":{"ariaLabel":"Sort the results","tooltip":"Sort","title":"Sort by","sorting":{"asc":"Ascending","desc":"Descending","az":"A-Z","za":"Z-A"}},"UpdateButtons":{"cancel":"Cancel","update":"Update","save":"Save","saveAs":"Save as","modal":{"title":"Save view as","label":"Name","sameName":"A view with this name already exists. Please choose a different name.","save":"Save","cancel":"Cancel"}}},"IndexProvider":{"defaultItemSingular":"Item","defaultItemPlural":"Items","allItemsSelected":"All {itemsLength}+ {resourceNamePlural} are selected","selected":"{selectedItemsCount} selected","a11yCheckboxDeselectAllSingle":"Deselect {resourceNameSingular}","a11yCheckboxSelectAllSingle":"Select {resourceNameSingular}","a11yCheckboxDeselectAllMultiple":"Deselect all {itemsLength} {resourceNamePlural}","a11yCheckboxSelectAllMultiple":"Select all {itemsLength} {resourceNamePlural}"},"IndexTable":{"emptySearchTitle":"No {resourceNamePlural} found","emptySearchDescription":"Try changing the filters or search term","onboardingBadgeText":"New","resourceLoadingAccessibilityLabel":"Loading {resourceNamePlural}…","selectAllLabel":"Select all {resourceNamePlural}","selected":"{selectedItemsCount} selected","undo":"Undo","selectAllItems":"Select all {itemsLength}+ {resourceNamePlural}","selectItem":"Select {resourceName}","selectButtonText":"Select","sortAccessibilityLabel":"sort {direction} by"},"Loading":{"label":"Page loading bar"},"Modal":{"iFrameTitle":"body markup","modalWarning":"These required properties are missing from Modal: {missingProps}"},"Page":{"Header":{"rollupActionsLabel":"View actions for {title}"}},"Pagination":{"previous":"Previous","next":"Next","pagination":"Pagination"},"ProgressBar":{"negativeWarningMessage":"Values passed to the progress prop shouldn’t be negative. Resetting {progress} to 0.","exceedWarningMessage":"Values passed to the progress prop shouldn’t exceed 100. Setting {progress} to 100."},"ResourceList":{"sortingLabel":"Sort by","defaultItemSingular":"item","defaultItemPlural":"items","showing":"Showing {itemsCount} {resource}","showingTotalCount":"Showing {itemsCount} of {totalItemsCount} {resource}","loading":"Loading {resource}","selected":"{selectedItemsCount} selected","allItemsSelected":"All {itemsLength}+ {resourceNamePlural} in your store are selected","allFilteredItemsSelected":"All {itemsLength}+ {resourceNamePlural} in this filter are selected","selectAllItems":"Select all {itemsLength}+ {resourceNamePlural} in your store","selectAllFilteredItems":"Select all {itemsLength}+ {resourceNamePlural} in this filter","emptySearchResultTitle":"No {resourceNamePlural} found","emptySearchResultDescription":"Try changing the filters or search term","selectButtonText":"Select","a11yCheckboxDeselectAllSingle":"Deselect {resourceNameSingular}","a11yCheckboxSelectAllSingle":"Select {resourceNameSingular}","a11yCheckboxDeselectAllMultiple":"Deselect all {itemsLength} {resourceNamePlural}","a11yCheckboxSelectAllMultiple":"Select all {itemsLength} {resourceNamePlural}","Item":{"actionsDropdownLabel":"Actions for {accessibilityLabel}","actionsDropdown":"Actions dropdown","viewItem":"View details for {itemName}"},"BulkActions":{"actionsActivatorLabel":"Actions","moreActionsActivatorLabel":"More actions","warningMessage":"To provide a better user experience. There should only be a maximum of {maxPromotedActions} promoted actions."}},"SkeletonPage":{"loadingLabel":"Page loading"},"Tabs":{"newViewAccessibilityLabel":"Create new view","newViewTooltip":"Create view","toggleTabsLabel":"More views","Tab":{"rename":"Rename view","duplicate":"Duplicate view","edit":"Edit view","editColumns":"Edit columns","delete":"Delete view","copy":"Copy of {name}","deleteModal":{"title":"Delete view?","description":"This can’t be undone. {viewName} view will no longer be available in your admin.","cancel":"Cancel","delete":"Delete view"}},"RenameModal":{"title":"Rename view","label":"Name","cancel":"Cancel","create":"Save","errors":{"sameName":"A view with this name already exists. Please choose a different name."}},"DuplicateModal":{"title":"Duplicate view","label":"Name","cancel":"Cancel","create":"Create view","errors":{"sameName":"A view with this name already exists. Please choose a different name."}},"CreateViewModal":{"title":"Create new view","label":"Name","cancel":"Cancel","create":"Create view","errors":{"sameName":"A view with this name already exists. Please choose a different name."}}},"Tag":{"ariaLabel":"Remove {children}"},"TextField":{"characterCount":"{count} characters","characterCountWithMaxLength":"{count} of {limit} characters used"},"TooltipOverlay":{"accessibilityLabel":"Tooltip: {label}"},"TopBar":{"toggleMenuLabel":"Toggle menu","SearchField":{"clearButtonLabel":"Clear","search":"Search"}},"MediaCard":{"dismissButton":"Dismiss","popoverButton":"Actions"},"VideoThumbnail":{"playButtonA11yLabel":{"default":"Play video","defaultWithDuration":"Play video of length {duration}","duration":{"hours":{"other":{"only":"{hourCount} hours","andMinutes":"{hourCount} hours and {minuteCount} minutes","andMinute":"{hourCount} hours and {minuteCount} minute","minutesAndSeconds":"{hourCount} hours, {minuteCount} minutes, and {secondCount} seconds","minutesAndSecond":"{hourCount} hours, {minuteCount} minutes, and {secondCount} second","minuteAndSeconds":"{hourCount} hours, {minuteCount} minute, and {secondCount} seconds","minuteAndSecond":"{hourCount} hours, {minuteCount} minute, and {secondCount} second","andSeconds":"{hourCount} hours and {secondCount} seconds","andSecond":"{hourCount} hours and {secondCount} second"},"one":{"only":"{hourCount} hour","andMinutes":"{hourCount} hour and {minuteCount} minutes","andMinute":"{hourCount} hour and {minuteCount} minute","minutesAndSeconds":"{hourCount} hour, {minuteCount} minutes, and {secondCount} seconds","minutesAndSecond":"{hourCount} hour, {minuteCount} minutes, and {secondCount} second","minuteAndSeconds":"{hourCount} hour, {minuteCount} minute, and {secondCount} seconds","minuteAndSecond":"{hourCount} hour, {minuteCount} minute, and {secondCount} second","andSeconds":"{hourCount} hour and {secondCount} seconds","andSecond":"{hourCount} hour and {secondCount} second"}},"minutes":{"other":{"only":"{minuteCount} minutes","andSeconds":"{minuteCount} minutes and {secondCount} seconds","andSecond":"{minuteCount} minutes and {secondCount} second"},"one":{"only":"{minuteCount} minute","andSeconds":"{minuteCount} minute and {secondCount} seconds","andSecond":"{minuteCount} minute and {secondCount} second"}},"seconds":{"other":"{secondCount} seconds","one":"{secondCount} second"}}}}}');
+const translations = {
+  Polaris
+};
+const volumeOptions = [{
+  label: "0–100",
+  value: "0-100"
+}, {
+  label: "100–500",
+  value: "100-500"
+}, {
+  label: "500–2,000",
+  value: "500-2000"
+}, {
+  label: "2,000+",
+  value: "2000+"
+}];
+const urlPattern = /^https?:\/\/[\w\-]+(\.[\w\-]+)+([/?#][^\s]*)?$/i;
+function validateProductUrls(value) {
+  const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 3) {
+    return "Please enter up to 3 product URLs.";
+  }
+  for (const line of lines) {
+    if (!urlPattern.test(line)) {
+      return "Each product URL must be a valid http:// or https:// address.";
+    }
+  }
+  return "";
+}
+function LogoPreview({
+  logoUrl,
+  brandName
+}) {
+  const initials = brandName.trim().charAt(0).toUpperCase() || "R";
+  if (logoUrl) {
+    return /* @__PURE__ */ jsx(Thumbnail, {
+      source: logoUrl,
+      alt: brandName || "Brand logo",
+      size: "large"
+    });
+  }
+  return /* @__PURE__ */ jsx("div", {
+    style: {
+      width: 72,
+      height: 72,
+      borderRadius: 16,
+      background: "#E2E8F0",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#1F2937",
+      fontSize: 28,
+      fontWeight: 700
+    },
+    children: initials
+  });
+}
+function OfferPreviewCard({
+  logoUrl,
+  brandName,
+  description
+}) {
+  const displayName = brandName.trim() || "Your brand";
+  const displayDescription = description.trim() ? description : "Your offer preview will appear here.";
+  return /* @__PURE__ */ jsxs("div", {
+    style: {
+      border: "1px solid #DDE4EA",
+      borderRadius: 20,
+      padding: 24,
+      background: "#FFFFFF",
+      boxShadow: "0 24px 80px rgba(15, 23, 42, 0.08)"
+    },
+    children: [/* @__PURE__ */ jsxs("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        marginBottom: 20
+      },
+      children: [/* @__PURE__ */ jsx(LogoPreview, {
+        logoUrl,
+        brandName: displayName
+      }), /* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsx(Text, {
+          as: "p",
+          variant: "headingMd",
+          style: {
+            margin: 0
+          },
+          children: displayName
+        }), /* @__PURE__ */ jsx(Text, {
+          as: "p",
+          variant: "bodySm",
+          color: "subdued",
+          style: {
+            marginTop: 4
+          },
+          children: "Partner offer card preview"
+        })]
+      })]
+    }), /* @__PURE__ */ jsxs("div", {
+      style: {
+        borderRadius: 18,
+        background: "#F5F7FA",
+        padding: 20,
+        minHeight: 170,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between"
+      },
+      children: [/* @__PURE__ */ jsxs("div", {
+        children: [/* @__PURE__ */ jsx(Text, {
+          as: "p",
+          variant: "bodyMd",
+          fontWeight: "bold",
+          children: displayName
+        }), /* @__PURE__ */ jsx(Text, {
+          as: "p",
+          variant: "bodyMd",
+          color: description.trim() ? "subdued" : "subdued",
+          style: {
+            marginTop: 8,
+            whiteSpace: "pre-line"
+          },
+          children: displayDescription
+        })]
+      }), /* @__PURE__ */ jsx("div", {
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          marginTop: 24
+        },
+        children: /* @__PURE__ */ jsx(Button, {
+          disabled: true,
+          fullWidth: true,
+          children: "Unlock offer"
+        })
+      })]
+    })]
+  });
+}
+function getGapValue(gap) {
+  const num = Number(gap) || 0;
+  return `${num * 8}px`;
+}
+function VStack({
+  children,
+  gap
+}) {
+  return /* @__PURE__ */ jsx("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: getGapValue(gap)
+    },
+    children
+  });
+}
+function HStack({
+  children,
+  align,
+  justify,
+  gap
+}) {
+  return /* @__PURE__ */ jsx("div", {
+    style: {
+      display: "flex",
+      alignItems: align ?? "center",
+      justifyContent: justify ?? "flex-start",
+      gap: getGapValue(gap)
+    },
+    children
+  });
+}
+async function fetchShopBrandLogo(shop, accessToken) {
+  var _a2, _b, _c, _d, _e, _f;
+  if (!shop || !accessToken) {
+    return null;
+  }
+  const query = `
+    query ShopBrandLogo {
+      shop {
+        name
+        brand {
+          logo {
+            image {
+              url
+            }
+          }
+        }
+      }
+    }
+  `;
+  try {
+    const response = await fetch(`https://${shop}/admin/api/2025-10/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken
+      },
+      body: JSON.stringify({
+        query
+      })
+    });
+    const json = await response.json().catch((error) => {
+      console.log(`[app.onboarding] shop=${shop} logo fetch invalid JSON`, {
+        status: response.status,
+        error
+      });
+      return null;
+    });
+    if (!response.ok) {
+      console.log(`[app.onboarding] shop=${shop} logo fetch failed`, {
+        status: response.status,
+        body: json
+      });
+      return null;
+    }
+    if ((_a2 = json == null ? void 0 : json.errors) == null ? void 0 : _a2.length) {
+      console.log(`[app.onboarding] shop=${shop} logo query errors`, json.errors);
+    }
+    const logoUrl = ((_f = (_e = (_d = (_c = (_b = json == null ? void 0 : json.data) == null ? void 0 : _b.shop) == null ? void 0 : _c.brand) == null ? void 0 : _d.logo) == null ? void 0 : _e.image) == null ? void 0 : _f.url) ?? null;
+    console.log(`[app.onboarding] shop=${shop} logo fetched`, {
+      logoUrl
+    });
+    return logoUrl;
+  } catch (error) {
+    console.log(`[app.onboarding] shop=${shop} logo fetch error`, error);
+    return null;
+  }
+}
+const loader$2 = async ({
+  request
+}) => {
+  const url = new URL(request.url);
+  const shopParam = url.searchParams.get("shop") ?? void 0;
+  let logoUrl = null;
+  console.log(`[app.onboarding] loader starting`, {
+    shopParam,
+    url: request.url,
+    userAgent: request.headers.get("user-agent"),
+    referer: request.headers.get("referer")
+  });
+  if (shopParam) {
+    try {
+      const existingShop = await prisma.shop.findUnique({
+        where: {
+          shopDomain: shopParam
+        },
+        select: {
+          accessToken: true
+        }
+      });
+      if (existingShop == null ? void 0 : existingShop.accessToken) {
+        console.log(`[app.onboarding] found shop in database, fetching logo`);
+        logoUrl = await fetchShopBrandLogo(shopParam, existingShop.accessToken);
+      } else {
+        console.log(`[app.onboarding] shop not found in database or no access token`);
+      }
+    } catch (dbError) {
+      console.log(`[app.onboarding] database error`, dbError);
+    }
+  }
+  if (!logoUrl) {
+    try {
+      const {
+        session
+      } = await authenticate.admin(request);
+      const accessToken = session.accessToken ?? null;
+      const shopDomain = session.shop ?? shopParam;
+      console.log(`[app.onboarding] session authenticated`, {
+        shopDomain,
+        hasAccessToken: Boolean(accessToken),
+        sessionShop: session.shop
+      });
+      if (shopDomain && accessToken) {
+        logoUrl = await fetchShopBrandLogo(shopDomain, accessToken);
+      }
+    } catch (error) {
+      console.log(`[app.onboarding] authenticate.admin failed`, {
+        error: error instanceof Error ? error.message : error,
+        shopParam
+      });
+    }
+  }
+  console.log(`[app.onboarding] loader complete`, {
+    logoUrl
+  });
+  return Response.json({
+    logoUrl
+  });
+};
+const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
+  const {
+    logoUrl
+  } = useLoaderData();
+  const [brandName, setBrandName] = useState("");
+  const [description, setDescription] = useState("");
+  const [productUrls, setProductUrls] = useState("");
+  const [monthlyVolume, setMonthlyVolume] = useState();
+  const [friendlyBrands, setFriendlyBrands] = useState("");
+  const [newCustomersOnly, setNewCustomersOnly] = useState(false);
+  const [participateNetwork, setParticipateNetwork] = useState(true);
+  const [submissionAttempted, setSubmissionAttempted] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const productUrlsError = productUrls.trim().length > 0 ? validateProductUrls(productUrls) : "";
+  const brandNameError = submissionAttempted && brandName.trim().length === 0 ? "Brand name is required." : "";
+  const descriptionError = submissionAttempted && description.trim().length === 0 ? "Description is required." : "";
+  const monthlyVolumeError = submissionAttempted && !monthlyVolume ? "Please select your monthly order volume." : "";
+  const hasErrors = Boolean(brandNameError) || Boolean(descriptionError) || Boolean(monthlyVolumeError) || Boolean(productUrlsError);
+  const previewLogoUrl = logoUrl ? logoUrl : void 0;
+  const formPayload = {
+    brandName: brandName.trim(),
+    description: description.trim(),
+    productUrls: productUrls.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+    monthlyVolume,
+    friendlyBrands: friendlyBrands.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+    newCustomersOnly,
+    participateNetwork
+  };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSubmissionAttempted(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    if (hasErrors) {
+      return;
+    }
+    const response = await fetch("/api/onboarding", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(formPayload)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setSaveError((result == null ? void 0 : result.error) || "Unable to save your onboarding details.");
+      return;
+    }
+    setSaveSuccess(true);
+  };
+  return /* @__PURE__ */ jsx(AppProvider$1, {
+    i18n: translations,
+    children: /* @__PURE__ */ jsx(Page, {
+      title: "Join the Recip network",
+      children: /* @__PURE__ */ jsxs(Layout, {
+        children: [/* @__PURE__ */ jsx(Layout.Section, {
+          children: /* @__PURE__ */ jsx(Text, {
+            as: "p",
+            variant: "bodyMd",
+            color: "subdued",
+            children: "Tell us a little about your brand so we can match you with the most relevant partner brands."
+          })
+        }), /* @__PURE__ */ jsx(Layout.Section, {
+          oneHalf: true,
+          children: /* @__PURE__ */ jsx("form", {
+            onSubmit: handleSubmit,
+            children: /* @__PURE__ */ jsxs(VStack, {
+              gap: "6",
+              children: [/* @__PURE__ */ jsx(Card, {
+                sectioned: true,
+                children: /* @__PURE__ */ jsxs(VStack, {
+                  gap: "5",
+                  children: [/* @__PURE__ */ jsx(Text, {
+                    as: "h2",
+                    variant: "headingMd",
+                    children: "Brand basics"
+                  }), /* @__PURE__ */ jsx(HStack, {
+                    align: "center",
+                    justify: "space-between",
+                    children: /* @__PURE__ */ jsxs(HStack, {
+                      align: "center",
+                      gap: "4",
+                      children: [/* @__PURE__ */ jsx(LogoPreview, {
+                        logoUrl: previewLogoUrl,
+                        brandName: brandName || "Your brand"
+                      }), /* @__PURE__ */ jsxs("div", {
+                        children: [/* @__PURE__ */ jsx(Text, {
+                          as: "p",
+                          variant: "headingSm",
+                          children: "Brand preview"
+                        }), /* @__PURE__ */ jsx(Text, {
+                          as: "p",
+                          variant: "bodySm",
+                          color: "subdued",
+                          children: "Your logo will appear here once your store is connected."
+                        })]
+                      })]
+                    })
+                  }), /* @__PURE__ */ jsx(TextField, {
+                    label: "Brand name",
+                    value: brandName,
+                    onChange: setBrandName,
+                    error: brandNameError,
+                    requiredIndicator: true
+                  }), /* @__PURE__ */ jsx(TextField, {
+                    label: "Describe your products",
+                    value: description,
+                    onChange: setDescription,
+                    multiline: 4,
+                    helpText: "In 1–3 sentences, tell us what you sell and who it’s for.",
+                    error: descriptionError,
+                    requiredIndicator: true
+                  }), /* @__PURE__ */ jsx(TextField, {
+                    label: "Example product URLs",
+                    value: productUrls,
+                    onChange: setProductUrls,
+                    multiline: 3,
+                    helpText: "Add up to 3 product links, one per line, so we can match your brand more accurately.",
+                    error: productUrlsError
+                  })]
+                })
+              }), /* @__PURE__ */ jsx(Card, {
+                sectioned: true,
+                children: /* @__PURE__ */ jsxs(VStack, {
+                  gap: "5",
+                  children: [/* @__PURE__ */ jsx(Text, {
+                    as: "h2",
+                    variant: "headingMd",
+                    children: "Matching"
+                  }), /* @__PURE__ */ jsx(ChoiceList, {
+                    title: "How many orders do you typically get per month?",
+                    choices: volumeOptions,
+                    selected: monthlyVolume ? [monthlyVolume] : [],
+                    onChange: (selected) => setMonthlyVolume(selected[0]),
+                    allowMultiple: false,
+                    error: monthlyVolumeError
+                  }), /* @__PURE__ */ jsx(TextField, {
+                    label: "Friendly brands you'd like to be matched with",
+                    value: friendlyBrands,
+                    onChange: setFriendlyBrands,
+                    multiline: 3,
+                    helpText: "Add brand names, one per line. We’ll use this as a signal, but matches are still based on fit and performance."
+                  })]
+                })
+              }), /* @__PURE__ */ jsx(Card, {
+                sectioned: true,
+                children: /* @__PURE__ */ jsxs(VStack, {
+                  gap: "4",
+                  children: [/* @__PURE__ */ jsx(Text, {
+                    as: "h2",
+                    variant: "headingMd",
+                    children: "Offer rules"
+                  }), /* @__PURE__ */ jsx(Checkbox, {
+                    label: "Only make my discount offers available to new customers",
+                    checked: newCustomersOnly,
+                    onChange: setNewCustomersOnly,
+                    helpText: "If enabled, Recip will create offers intended for first-time customers only."
+                  })]
+                })
+              }), /* @__PURE__ */ jsx(Card, {
+                sectioned: true,
+                children: /* @__PURE__ */ jsxs(VStack, {
+                  gap: "4",
+                  children: [/* @__PURE__ */ jsx(Text, {
+                    as: "h2",
+                    variant: "headingMd",
+                    children: "Network participation"
+                  }), /* @__PURE__ */ jsx(Checkbox, {
+                    label: "Participate in the Recip network",
+                    checked: participateNetwork,
+                    onChange: setParticipateNetwork,
+                    helpText: "If turned off, your offers will stop appearing on other stores and Recip offers will no longer be shown on your store."
+                  })]
+                })
+              }), submissionAttempted && hasErrors ? /* @__PURE__ */ jsx(Banner, {
+                status: "critical",
+                children: /* @__PURE__ */ jsx(Text, {
+                  as: "p",
+                  children: "Please fix the highlighted fields before continuing."
+                })
+              }) : null, saveError ? /* @__PURE__ */ jsx(Banner, {
+                status: "critical",
+                children: /* @__PURE__ */ jsx(Text, {
+                  as: "p",
+                  children: saveError
+                })
+              }) : null, saveSuccess ? /* @__PURE__ */ jsx(Banner, {
+                status: "success",
+                children: /* @__PURE__ */ jsx(Text, {
+                  as: "p",
+                  children: "Your onboarding details were saved."
+                })
+              }) : null, /* @__PURE__ */ jsx(Button, {
+                primary: true,
+                submit: true,
+                disabled: hasErrors,
+                children: "Save and continue"
+              })]
+            })
+          })
+        }), /* @__PURE__ */ jsx(Layout.Section, {
+          oneHalf: true,
+          children: /* @__PURE__ */ jsxs("div", {
+            style: {
+              position: "sticky",
+              top: 24
+            },
+            children: [/* @__PURE__ */ jsx(Card, {
+              sectioned: true,
+              children: /* @__PURE__ */ jsxs(VStack, {
+                gap: "4",
+                children: [/* @__PURE__ */ jsxs(HStack, {
+                  align: "center",
+                  justify: "space-between",
+                  children: [/* @__PURE__ */ jsx(Text, {
+                    as: "h2",
+                    variant: "headingMd",
+                    children: "Live preview"
+                  }), /* @__PURE__ */ jsx(Thumbnail, {
+                    source: previewLogoUrl || "https://cdn.shopify.com/s/files/1/0262/4071/2720/files/placeholder-avatar.svg",
+                    alt: brandName || "Logo placeholder",
+                    size: "small"
+                  })]
+                }), /* @__PURE__ */ jsx(OfferPreviewCard, {
+                  logoUrl: previewLogoUrl,
+                  brandName,
+                  description
+                })]
+              })
+            }), /* @__PURE__ */ jsx(Card, {
+              sectioned: true,
+              children: /* @__PURE__ */ jsxs(VStack, {
+                gap: "3",
+                children: [/* @__PURE__ */ jsx(Text, {
+                  as: "h3",
+                  variant: "headingMd",
+                  children: "How Recip works"
+                }), /* @__PURE__ */ jsx(Text, {
+                  as: "p",
+                  variant: "bodyMd",
+                  color: "subdued",
+                  children: "Recip matches your brand with the most relevant partner brands based on your website, product information, and order volume."
+                }), /* @__PURE__ */ jsx(Text, {
+                  as: "p",
+                  variant: "bodySm",
+                  color: "subdued",
+                  children: "After you continue, we’ll suggest a category and sub-category for your brand. You’ll be able to confirm or edit it."
+                })]
+              })
+            })]
+          })
+        })]
+      })
+    })
+  });
+});
+const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  default: app_onboarding,
+  loader: loader$2
 }, Symbol.toStringTag, { value: "Module" }));
 const loader$1 = async ({
   request
 }) => {
   await authenticate.admin(request);
-  const htmlPath = path.resolve(process.cwd(), "public", "index.html");
-  const html = await readFile(htmlPath, "utf8");
-  return new Response(html, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8"
-    }
-  });
+  return Response.json({});
 };
-const app__index = UNSAFE_withComponentProps(function Index() {
-  return null;
+const app__index = UNSAFE_withComponentProps(function Home2() {
+  const location = useLocation();
+  const search = location.search || "";
+  return /* @__PURE__ */ jsxs("div", {
+    style: {
+      padding: 40,
+      maxWidth: 980,
+      margin: "0 auto",
+      fontFamily: "Inter, sans-serif"
+    },
+    children: [/* @__PURE__ */ jsx("h1", {
+      style: {
+        fontSize: 36,
+        marginBottom: 16
+      },
+      children: "Welcome to Recip"
+    }), /* @__PURE__ */ jsx("p", {
+      style: {
+        fontSize: 18,
+        lineHeight: 1.7,
+        marginBottom: 24
+      },
+      children: "This is your home landing page. Use the onboarding flow to connect your brand and configure your first partner offers."
+    }), /* @__PURE__ */ jsxs("div", {
+      style: {
+        display: "flex",
+        gap: 12,
+        flexWrap: "wrap"
+      },
+      children: [/* @__PURE__ */ jsx("a", {
+        href: `/app/onboarding${search}`,
+        style: {
+          display: "inline-block",
+          padding: "12px 20px",
+          borderRadius: 10,
+          background: "#00695c",
+          color: "white",
+          textDecoration: "none",
+          fontWeight: 600
+        },
+        children: "Go to onboarding"
+      }), /* @__PURE__ */ jsx("a", {
+        href: `/app/additional${search}`,
+        style: {
+          display: "inline-block",
+          padding: "12px 20px",
+          borderRadius: 10,
+          background: "#f4f6f8",
+          color: "#111827",
+          textDecoration: "none",
+          fontWeight: 600
+        },
+        children: "View additional page"
+      })]
+    })]
+  });
 });
-const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: app__index,
   loader: loader$1
@@ -1502,11 +2270,11 @@ const loader = async ({
     }
   });
 };
-const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   loader
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-f6PY61Pe.js", "imports": ["/assets/jsx-runtime-Dvv0mw5A.js", "/assets/chunk-LFPYN7LY-DjDQdfDQ.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-CFTfiVTZ.js", "imports": ["/assets/jsx-runtime-Dvv0mw5A.js", "/assets/chunk-LFPYN7LY-DjDQdfDQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.scopes_update": { "id": "routes/webhooks.app.scopes_update", "parentId": "root", "path": "webhooks/app/scopes_update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.scopes_update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app_uninstalled": { "id": "routes/webhooks.app_uninstalled", "parentId": "root", "path": "webhooks/app_uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app_uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.orders.create": { "id": "routes/webhooks.orders.create", "parentId": "root", "path": "webhooks/orders/create", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.orders.create-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.events.impression": { "id": "routes/api.events.impression", "parentId": "root", "path": "api/events/impression", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.events.impression-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands": { "id": "routes/api.friendly-brands", "parentId": "root", "path": "api/friendly-brands", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands.$id": { "id": "routes/api.friendly-brands.$id", "parentId": "routes/api.friendly-brands", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.settings": { "id": "routes/api.settings", "parentId": "root", "path": "api/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.settings-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.offers": { "id": "routes/api.offers", "parentId": "root", "path": "api/offers", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.offers-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.login": { "id": "routes/auth.login", "parentId": "root", "path": "auth/login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-CIyrABlo.js", "imports": ["/assets/chunk-LFPYN7LY-DjDQdfDQ.js", "/assets/jsx-runtime-Dvv0mw5A.js", "/assets/AppProxyProvider-BoMWCWsQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/r.$offerId": { "id": "routes/r.$offerId", "parentId": "root", "path": "r/:offerId", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/r._offerId-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-IwSztuCj.js", "imports": ["/assets/chunk-LFPYN7LY-DjDQdfDQ.js", "/assets/jsx-runtime-Dvv0mw5A.js"], "css": ["/assets/route-Xpdx9QZl.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-Bo1piqih.js", "imports": ["/assets/chunk-LFPYN7LY-DjDQdfDQ.js", "/assets/jsx-runtime-Dvv0mw5A.js", "/assets/AppProxyProvider-BoMWCWsQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.additional": { "id": "routes/app.additional", "parentId": "routes/app", "path": "additional", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.additional-I9Evg-kr.js", "imports": ["/assets/chunk-LFPYN7LY-DjDQdfDQ.js", "/assets/jsx-runtime-Dvv0mw5A.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-DT4jlyWQ.js", "imports": ["/assets/chunk-LFPYN7LY-DjDQdfDQ.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.html": { "id": "routes/app.html", "parentId": "routes/app", "path": "html", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/app.html-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-4c6d097d.js", "version": "4c6d097d", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-DzgJ9FzB.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-C3-JMdhV.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.scopes_update": { "id": "routes/webhooks.app.scopes_update", "parentId": "root", "path": "webhooks/app/scopes_update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.scopes_update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app_uninstalled": { "id": "routes/webhooks.app_uninstalled", "parentId": "root", "path": "webhooks/app_uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app_uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.orders.create": { "id": "routes/webhooks.orders.create", "parentId": "root", "path": "webhooks/orders/create", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.orders.create-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.events.impression": { "id": "routes/api.events.impression", "parentId": "root", "path": "api/events/impression", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.events.impression-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands": { "id": "routes/api.friendly-brands", "parentId": "root", "path": "api/friendly-brands", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands.$id": { "id": "routes/api.friendly-brands.$id", "parentId": "routes/api.friendly-brands", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.onboarding": { "id": "routes/api.onboarding", "parentId": "root", "path": "api/onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.onboarding-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.settings": { "id": "routes/api.settings", "parentId": "root", "path": "api/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.settings-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.offers": { "id": "routes/api.offers", "parentId": "root", "path": "api/offers", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.offers-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.login": { "id": "routes/auth.login", "parentId": "root", "path": "auth/login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-CuZb7FNa.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/r.$offerId": { "id": "routes/r.$offerId", "parentId": "root", "path": "r/:offerId", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/r._offerId-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-BTyQ6t07.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.additional": { "id": "routes/app.additional", "parentId": "routes/app", "path": "additional", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.additional-BHY5xze9.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.onboarding": { "id": "routes/app.onboarding", "parentId": "routes/app", "path": "onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.onboarding-B7LbaYGo.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": ["/assets/app-UBlowCeV.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.html": { "id": "routes/app.html", "parentId": "routes/app", "path": "html", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/app.html-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-d324b9a5.js", "version": "d324b9a5", "sri": void 0 };
 const assetsBuildDirectory = "build/client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "unstable_subResourceIntegrity": false, "unstable_trailingSlashAwareDataRequests": false, "unstable_previewServerPrerendering": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
@@ -1581,13 +2349,21 @@ const routes = {
     caseSensitive: void 0,
     module: route7
   },
+  "routes/api.onboarding": {
+    id: "routes/api.onboarding",
+    parentId: "root",
+    path: "api/onboarding",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route8
+  },
   "routes/api.settings": {
     id: "routes/api.settings",
     parentId: "root",
     path: "api/settings",
     index: void 0,
     caseSensitive: void 0,
-    module: route8
+    module: route9
   },
   "routes/api.offers": {
     id: "routes/api.offers",
@@ -1595,7 +2371,7 @@ const routes = {
     path: "api/offers",
     index: void 0,
     caseSensitive: void 0,
-    module: route9
+    module: route10
   },
   "routes/auth.login": {
     id: "routes/auth.login",
@@ -1603,7 +2379,7 @@ const routes = {
     path: "auth/login",
     index: void 0,
     caseSensitive: void 0,
-    module: route10
+    module: route11
   },
   "routes/r.$offerId": {
     id: "routes/r.$offerId",
@@ -1611,7 +2387,7 @@ const routes = {
     path: "r/:offerId",
     index: void 0,
     caseSensitive: void 0,
-    module: route11
+    module: route12
   },
   "routes/_index": {
     id: "routes/_index",
@@ -1619,7 +2395,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route12
+    module: route13
   },
   "routes/auth.$": {
     id: "routes/auth.$",
@@ -1627,7 +2403,7 @@ const routes = {
     path: "auth/*",
     index: void 0,
     caseSensitive: void 0,
-    module: route13
+    module: route14
   },
   "routes/app": {
     id: "routes/app",
@@ -1635,7 +2411,7 @@ const routes = {
     path: "app",
     index: void 0,
     caseSensitive: void 0,
-    module: route14
+    module: route15
   },
   "routes/app.additional": {
     id: "routes/app.additional",
@@ -1643,7 +2419,15 @@ const routes = {
     path: "additional",
     index: void 0,
     caseSensitive: void 0,
-    module: route15
+    module: route16
+  },
+  "routes/app.onboarding": {
+    id: "routes/app.onboarding",
+    parentId: "routes/app",
+    path: "onboarding",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route17
   },
   "routes/app._index": {
     id: "routes/app._index",
@@ -1651,7 +2435,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route16
+    module: route18
   },
   "routes/app.html": {
     id: "routes/app.html",
@@ -1659,7 +2443,7 @@ const routes = {
     path: "html",
     index: void 0,
     caseSensitive: void 0,
-    module: route17
+    module: route19
   }
 };
 const allowedActionOrigins = false;
