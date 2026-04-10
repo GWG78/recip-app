@@ -51,8 +51,31 @@ function LogoPreview({ logoUrl, brandName }: { logoUrl?: string; brandName: stri
 
   if (logoUrl) {
     return (
-      <div style={{ "--pc-thumbnail-large-size": "8rem", border: "none" } as React.CSSProperties}>
-        <Thumbnail source={logoUrl} alt={brandName || "Brand logo"} size="large" />
+      <div
+        style={{
+          width: 128,
+          height: 128,
+          borderRadius: 16,
+          overflow: "hidden",
+          background: "#FFFFFF",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "none",
+          border: "none",
+        }}
+      >
+        <img
+          src={logoUrl}
+          alt={brandName || "Brand logo"}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+            border: "none",
+          }}
+        />
       </div>
     );
   }
