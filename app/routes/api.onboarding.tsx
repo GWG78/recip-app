@@ -1,5 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
+import { DiscountType } from "@prisma/client";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -15,25 +17,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const body = (await request.json()) as {
     brandName?: string;
-    websiteUrl?: string;
+    logoUrl?: string;
     description?: string;
     productUrls?: string[];
     monthlyVolume?: string;
     friendlyBrands?: string[];
+    offerType?: "percentage" | "fixed";
+    offerValue?: string;
     newCustomersOnly?: boolean;
     participateNetwork?: boolean;
   };
 
   const brandName = body.brandName?.trim();
-  const websiteUrl = body.websiteUrl?.trim();
   const description = body.description?.trim();
+  const offerValue = body.offerValue?.trim();
 
   if (!brandName) {
     return Response.json({ error: "Brand name is required." }, { status: 400 });
-  }
-
-  if (!websiteUrl) {
-    return Response.json({ error: "Website URL is required." }, { status: 400 });
   }
 
   if (!description) {
@@ -44,19 +44,56 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return Response.json({ error: "Monthly order volume is required." }, { status: 400 });
   }
 
+  const shop = await db.shop.upsert({
+    where: { shopDomain: session.shop },
+    update: {},
+    create: { shopDomain: session.shop },
+  });
+
+  const settings = await db.shopSettings.upsert({
+    where: { shopId: shop.id },
+    update: {
+      brandName,
+      logoUrl: body.logoUrl?.trim() || null,
+      brandDescription: description,
+      productUrls: body.productUrls ?? [],
+      friendlyBrands: body.friendlyBrands ?? [],
+      monthlyVolume: body.monthlyVolume,
+      newCustomersOnly: Boolean(body.newCustomersOnly),
+      participateNetwork: typeof body.participateNetwork === "undefined" ? true : Boolean(body.participateNetwork),
+      discountType:
+        body.offerType === "fixed" ? DiscountType.FIXED : DiscountType.PERCENTAGE,
+      discountValue: offerValue ? Number(offerValue) : undefined,
+    },
+    create: {
+      shopId: shop.id,
+      brandName,
+      logoUrl: body.logoUrl?.trim() || null,
+      brandDescription: description,
+      productUrls: body.productUrls ?? [],
+      friendlyBrands: body.friendlyBrands ?? [],
+      monthlyVolume: body.monthlyVolume,
+      newCustomersOnly: Boolean(body.newCustomersOnly),
+      participateNetwork: typeof body.participateNetwork === "undefined" ? true : Boolean(body.participateNetwork),
+      discountType:
+        body.offerType === "fixed" ? DiscountType.FIXED : DiscountType.PERCENTAGE,
+      discountValue: offerValue ? Number(offerValue) : 0,
+    },
+  });
+
   console.log("[onboarding] shop=", session.shop, {
     brandName,
-    websiteUrl,
     description,
+    logoUrl: body.logoUrl,
     productUrls: body.productUrls,
     monthlyVolume: body.monthlyVolume,
     friendlyBrands: body.friendlyBrands,
+    offerType: body.offerType,
+    offerValue,
     newCustomersOnly: Boolean(body.newCustomersOnly),
     participateNetwork: Boolean(body.participateNetwork),
+    settingsId: settings.id,
   });
-
-  // TODO: save onboarding details to the database using Shop or ShopSettings.
-  // Example: await db.shopSettings.upsert({ where: { shopId }, update: { ... }, create: { ... } });
 
   return Response.json({ ok: true });
 };

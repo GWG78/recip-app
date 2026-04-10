@@ -63,6 +63,14 @@ model ShopSettings {
 
   active             Boolean  @default(true)
   collectionGids     String[] @default([])
+  brandName          String?
+  logoUrl            String?
+  brandDescription   String?
+  productUrls        String[] @default([])
+  friendlyBrands     String[] @default([])
+  monthlyVolume      String?
+  newCustomersOnly   Boolean  @default(false)
+  participateNetwork Boolean  @default(true)
 
   commissionRate     Decimal  @db.Decimal(5,4) @default(0.05)
   discountType       DiscountType @default(PERCENTAGE)
