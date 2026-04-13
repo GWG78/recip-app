@@ -1104,20 +1104,7 @@ const loader$8 = async ({
     });
   }
   const domains = sourceShop.friendly.map((b) => b.brandDomain);
-  if (!domains.length) {
-    console.log(`[offers] no friendly brands for ${sourceDomain}`);
-    return Response.json({
-      sourceShopId: sourceShop.id,
-      offers: []
-    }, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      }
-    });
-  }
-  const friendlyShops = await prisma.shop.findMany({
+  const friendlyShops = domains.length > 0 ? await prisma.shop.findMany({
     where: {
       shopDomain: {
         in: domains
@@ -1138,14 +1125,16 @@ const loader$8 = async ({
     },
     take: 2
     // Max 2 friendly brands
-  });
+  }) : [];
   const remainingSlots = Math.max(0, 4 - friendlyShops.length);
   const otherShops = remainingSlots > 0 ? await prisma.shop.findMany({
     where: {
-      shopDomain: {
-        notIn: domains
-      },
-      // Exclude friendly brands
+      ...domains.length > 0 ? {
+        shopDomain: {
+          notIn: domains
+        }
+      } : {},
+      // Exclude friendly brands only if they exist
       installed: true,
       active: true
     },

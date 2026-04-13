@@ -61,45 +61,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const domains = sourceShop.friendly.map((b) => b.brandDomain);
-  if (!domains.length) {
-    console.log(`[offers] no friendly brands for ${sourceDomain}`);
-    return Response.json({ sourceShopId: sourceShop.id, offers: [] }, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
-    });
-  }
 
-  // Fetch friendly brand offers (prioritized)
-  const friendlyShops = await db.shop.findMany({
-    where: {
-      shopDomain: { in: domains },
-      installed: true,
-      active: true,
-    },
-    include: {
-      settings: {
-        select: {
-          discountType: true,
-          discountValue: true,
-          brandName: true,
-          brandDescription: true,
-          logoUrl: true,
-        },
-      },
-    },
-    take: 2, // Max 2 friendly brands
-  });
+  // Fetch friendly brand offers (prioritized) if they exist
+  const friendlyShops =
+    domains.length > 0
+      ? await db.shop.findMany({
+          where: {
+            shopDomain: { in: domains },
+            installed: true,
+            active: true,
+          },
+          include: {
+            settings: {
+              select: {
+                discountType: true,
+                discountValue: true,
+                brandName: true,
+                brandDescription: true,
+                logoUrl: true,
+              },
+            },
+          },
+          take: 2, // Max 2 friendly brands
+        })
+      : [];
 
-  // Fetch other active shops (fallback, up to 2 more to reach 4 total)
+  // Fetch other active shops (fallback, up to 4 or remaining slots to reach 4 total)
   const remainingSlots = Math.max(0, 4 - friendlyShops.length);
   const otherShops =
     remainingSlots > 0
       ? await db.shop.findMany({
           where: {
-            shopDomain: { notIn: domains }, // Exclude friendly brands
+            ...(domains.length > 0 ? { shopDomain: { notIn: domains } } : {}), // Exclude friendly brands only if they exist
             installed: true,
             active: true,
           },
