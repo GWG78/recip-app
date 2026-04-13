@@ -1107,7 +1107,8 @@ const loader$8 = async ({
   const friendlyShops = domains.length > 0 ? await prisma.shop.findMany({
     where: {
       shopDomain: {
-        in: domains
+        in: domains,
+        not: sourceDomain
       },
       installed: true,
       active: true
@@ -1129,12 +1130,13 @@ const loader$8 = async ({
   const remainingSlots = Math.max(0, 4 - friendlyShops.length);
   const otherShops = remainingSlots > 0 ? await prisma.shop.findMany({
     where: {
-      ...domains.length > 0 ? {
-        shopDomain: {
-          notIn: domains
+      shopDomain: {
+        ...domains.length > 0 ? {
+          notIn: [...domains, sourceDomain]
+        } : {
+          not: sourceDomain
         }
-      } : {},
-      // Exclude friendly brands only if they exist
+      },
       installed: true,
       active: true
     },

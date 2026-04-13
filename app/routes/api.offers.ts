@@ -67,7 +67,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     domains.length > 0
       ? await db.shop.findMany({
           where: {
-            shopDomain: { in: domains },
+            shopDomain: { in: domains, not: sourceDomain },
             installed: true,
             active: true,
           },
@@ -92,7 +92,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     remainingSlots > 0
       ? await db.shop.findMany({
           where: {
-            ...(domains.length > 0 ? { shopDomain: { notIn: domains } } : {}), // Exclude friendly brands only if they exist
+            shopDomain: {
+              ...(domains.length > 0 ? { notIn: [...domains, sourceDomain] } : { not: sourceDomain }),
+            },
             installed: true,
             active: true,
           },

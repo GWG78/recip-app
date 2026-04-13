@@ -37,6 +37,7 @@ function OfferCard({
   brand,
   description,
   offer,
+  logoUrl,
   orderId,
   fromShopDomain,
   fromShopId,
@@ -66,35 +67,41 @@ function OfferCard({
       inlineSize: 'fill',
     },
 
-    // Brand row
+    // Brand header with logo and name
     h(
-      's-stack',
-      { gap: 'base', direction: 'inline', alignItems: 'center' },
-
-      h('s-image', {
-        src: 'https://placehold.co/64x64?text=Logo',
-        alt: `${brand} logo`,
-        width: 40,
-        height: 40,
-      }),
-
+      's-box',
+      { padding: 'none', marginBlockEnd: 'base' },
       h(
         's-stack',
-        { gap: 'none' },
-        h('s-text', { emphasis: true }, brand),
+        { gap: 'base', direction: 'inline', alignItems: 'start' },
+        
+        // Logo
+        h('s-image', {
+          src: logoUrl || 'https://placehold.co/64x64?text=Logo',
+          alt: `${brand} logo`,
+          width: 64,
+          height: 64,
+        }),
+
+        // Brand info
         h(
-          's-text',
-          { size: 'small', appearance: 'subdued' },
-          description
+          's-stack',
+          { gap: 'none' },
+          h('s-text', { emphasis: true, size: 'large' }, brand),
+          h(
+            's-text',
+            { size: 'small', appearance: 'subdued' },
+            offer
+          )
         )
       )
     ),
 
-    // Offer
+    // Description
     h(
       's-text',
-      { emphasis: true },
-      offer
+      { appearance: 'subdued' },
+      description
     ),
 
     // CTA
@@ -168,6 +175,7 @@ function App() {
           brand: offerItem.brand,
           description: offerItem.description,
           offer: offerItem.offer,
+          logoUrl: offerItem.logoUrl,
           orderId,
           fromShopDomain,
           fromShopId: sourceShopId,
