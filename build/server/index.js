@@ -1117,7 +1117,7 @@ const loader$8 = async ({
       }
     });
   }
-  const destinationShops = await prisma.shop.findMany({
+  const friendlyShops = await prisma.shop.findMany({
     where: {
       shopDomain: {
         in: domains
@@ -1129,29 +1129,55 @@ const loader$8 = async ({
       settings: {
         select: {
           discountType: true,
-          discountValue: true
+          discountValue: true,
+          brandName: true,
+          brandDescription: true,
+          logoUrl: true
         }
       }
     },
-    take: 4
+    take: 2
+    // Max 2 friendly brands
   });
-  console.log(`[offers] destinationShops found: ${destinationShops.length}`);
-  destinationShops.forEach((shop) => {
-    console.log(`[offers] dest shop: ${shop.shopDomain}, installed: ${shop.installed}, active: ${shop.active}`);
-  });
+  const remainingSlots = Math.max(0, 4 - friendlyShops.length);
+  const otherShops = remainingSlots > 0 ? await prisma.shop.findMany({
+    where: {
+      shopDomain: {
+        notIn: domains
+      },
+      // Exclude friendly brands
+      installed: true,
+      active: true
+    },
+    include: {
+      settings: {
+        select: {
+          discountType: true,
+          discountValue: true,
+          brandName: true,
+          brandDescription: true,
+          logoUrl: true
+        }
+      }
+    },
+    take: remainingSlots
+  }) : [];
+  console.log(`[offers] friendly=${friendlyShops.length} other=${otherShops.length}`);
+  const destinationShops = [...friendlyShops, ...otherShops];
   const offers = destinationShops.map((shop) => {
-    var _a2, _b;
+    var _a2, _b, _c, _d, _e;
     const discountType = ((_a2 = shop.settings) == null ? void 0 : _a2.discountType) ?? "PERCENTAGE";
     const discountValue = Number(((_b = shop.settings) == null ? void 0 : _b.discountValue) ?? 10);
     return {
       offerId: `offer-${shop.id}`,
       toShopId: shop.id,
       toShopDomain: shop.shopDomain,
-      brand: shop.shopDomain.replace(".myshopify.com", ""),
-      description: "Partner offer",
+      brand: ((_c = shop.settings) == null ? void 0 : _c.brandName) || shop.shopDomain.replace(".myshopify.com", ""),
+      description: ((_d = shop.settings) == null ? void 0 : _d.brandDescription) || "Partner offer",
       offer: buildOfferText(discountType, discountValue),
       discountType,
-      discountValue
+      discountValue,
+      logoUrl: ((_e = shop.settings) == null ? void 0 : _e.logoUrl) || void 0
     };
   });
   console.log(`[offers] source=${sourceDomain} friendly=${domains.length} matched=${offers.length}`);

@@ -72,7 +72,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   }
 
-  const destinationShops = await db.shop.findMany({
+  // Fetch friendly brand offers (prioritized)
+  const friendlyShops = await db.shop.findMany({
     where: {
       shopDomain: { in: domains },
       installed: true,
@@ -83,16 +84,46 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         select: {
           discountType: true,
           discountValue: true,
+          brandName: true,
+          brandDescription: true,
+          logoUrl: true,
         },
       },
     },
-    take: 4,
+    take: 2, // Max 2 friendly brands
   });
 
-  console.log(`[offers] destinationShops found: ${destinationShops.length}`);
-  destinationShops.forEach(shop => {
-    console.log(`[offers] dest shop: ${shop.shopDomain}, installed: ${shop.installed}, active: ${shop.active}`);
-  });
+  // Fetch other active shops (fallback, up to 2 more to reach 4 total)
+  const remainingSlots = Math.max(0, 4 - friendlyShops.length);
+  const otherShops =
+    remainingSlots > 0
+      ? await db.shop.findMany({
+          where: {
+            shopDomain: { notIn: domains }, // Exclude friendly brands
+            installed: true,
+            active: true,
+          },
+          include: {
+            settings: {
+              select: {
+                discountType: true,
+                discountValue: true,
+                brandName: true,
+                brandDescription: true,
+                logoUrl: true,
+              },
+            },
+          },
+          take: remainingSlots,
+        })
+      : [];
+
+  console.log(
+    `[offers] friendly=${friendlyShops.length} other=${otherShops.length}`
+  );
+
+  // Combine: friendly first, then others
+  const destinationShops = [...friendlyShops, ...otherShops];
 
   const offers = destinationShops.map((shop) => {
     const discountType = shop.settings?.discountType ?? "PERCENTAGE";
@@ -102,11 +133,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       offerId: `offer-${shop.id}`,
       toShopId: shop.id,
       toShopDomain: shop.shopDomain,
-      brand: shop.shopDomain.replace(".myshopify.com", ""),
-      description: "Partner offer",
+      brand: shop.settings?.brandName || shop.shopDomain.replace(".myshopify.com", ""),
+      description: shop.settings?.brandDescription || "Partner offer",
       offer: buildOfferText(discountType, discountValue),
       discountType,
       discountValue,
+      logoUrl: shop.settings?.logoUrl || undefined,
     };
   });
 
