@@ -81,6 +81,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     },
   });
 
+  // Create or update FriendlyBrand records from the form input
+  if (body.friendlyBrands && body.friendlyBrands.length > 0) {
+    // Delete existing friendly brands for this shop
+    await db.friendlyBrand.deleteMany({
+      where: { shopId: shop.id },
+    });
+
+    // Create new ones from the form input
+    for (const brandName of body.friendlyBrands) {
+      const normalizedDomain = String(brandName)
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/$/, "");
+
+      if (normalizedDomain) {
+        await db.friendlyBrand.create({
+          data: {
+            shopId: shop.id,
+            brandDomain: normalizedDomain,
+          },
+        });
+      }
+    }
+  }
+
   console.log("[onboarding] shop=", session.shop, {
     brandName,
     description,

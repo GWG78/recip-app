@@ -391,7 +391,7 @@ export default function OnboardingPage() {
                     />
 
                     <TextField
-                      label="Describe your products"
+                      label="Describe your brand"
                       value={description}
                       onChange={setDescription}
                       multiline={4}
