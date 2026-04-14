@@ -103,6 +103,8 @@ function OfferCard({
   const [errorMessage, setErrorMessage] = useState(null);
   const [copiedState, setCopiedState] = useState(false);
   
+  console.log('[OfferCard] render:', { brand, cardState, discountCode, copiedState });
+  
   // Track impression on mount
   useEffect(() => {
     if (orderId && toShopId) {
@@ -163,7 +165,8 @@ function OfferCard({
   };
 
   const handleCopyCode = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
     
     if (!discountCode) return;
 
@@ -194,15 +197,16 @@ function OfferCard({
   };
 
   const handleSecondCtaClick = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
     
     if (!discountCode) return;
 
     trackRedirect({ offerId, code: discountCode });
     
-    // Redirect to partner shop with code in URL
-    const redirectUrl = `https://${toShopDomain}/discount/${discountCode}?redirect=/`;
-    window.location.href = redirectUrl;
+    console.log('[OfferCard] redirecting to:', `https://${toShopDomain}/discount/${discountCode}?redirect=/`);
+    // Use window.open to navigate in Shopify extensions
+    window.open(`https://${toShopDomain}/discount/${discountCode}?redirect=/`, '_blank');
   };
 
   // Determine CTA button state and text
