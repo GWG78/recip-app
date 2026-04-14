@@ -234,7 +234,7 @@ function OfferCard({
     // initial state
     return {
       disabled: false,
-      text: 'View offer',
+      text: 'Unlock offer',
       onClick: handleFirstCtaClick,
     };
   };
