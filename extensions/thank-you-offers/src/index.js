@@ -288,24 +288,36 @@ function OfferCard({
       description
     ),
 
-    // Revealed code section (only shown in revealed/error state)
+    // Code and button group (tight spacing when revealed)
     cardState !== 'initial' && cardState !== 'revealing'
       ? h(
-          's-box',
-          { padding: 'small', background: 'info' },
+          's-stack',
+          { gap: 'small' },
+          // Revealed code section
           h(
             's-stack',
-            { gap: 'small' },
-            h('s-text', { size: 'small', appearance: 'subdued' }, 'Your code:'),
+            { gap: 'none', inlineAlign: 'center' },
             h(
               's-button',
               {
                 kind: 'secondary',
                 onClick: handleCopyCode,
                 title: 'Click to copy',
+                size: 'small',
               },
-              copiedState ? '✓ Copied!' : (copiedState ? '✓ Copied!' : discountCode)
+              copiedState ? '✓ Copied!' : discountCode
             )
+          ),
+          // CTA button
+          h(
+            's-button',
+            {
+              kind: 'secondary',
+              disabled: ctaProps.disabled,
+              onClick: ctaProps.onClick,
+              inlineSize: 'fill',
+            },
+            ctaProps.text
           )
         )
       : null,
@@ -321,17 +333,19 @@ function OfferCard({
         )
       : null,
 
-    // CTA button
-    h(
-      's-button',
-      {
-        kind: cardState === 'initial' ? 'primary' : 'secondary',
-        disabled: ctaProps.disabled,
-        onClick: ctaProps.onClick,
-        inlineSize: 'fill',
-      },
-      ctaProps.text
-    )
+    // CTA button (only shown in initial/error state)
+    (cardState === 'initial' || cardState === 'error') && cardState !== 'revealing'
+      ? h(
+          's-button',
+          {
+            kind: cardState === 'initial' ? 'primary' : 'secondary',
+            disabled: ctaProps.disabled,
+            onClick: ctaProps.onClick,
+            inlineSize: 'fill',
+          },
+          ctaProps.text
+        )
+      : null
   );
 }
 
