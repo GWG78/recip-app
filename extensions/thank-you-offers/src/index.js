@@ -32,6 +32,59 @@ async function trackImpression({ offerId, orderId, fromShopId, toShopId }) {
   }
 }
 
+// Track code reveal success
+async function trackCodeRevealSuccess({ offerId, code }) {
+  try {
+    console.log('[track] code-reveal-success:', { offerId, code });
+    // This is for local analytics; can be expanded to a real endpoint if needed
+  } catch (err) {
+    console.warn("Code reveal tracking failed", err);
+  }
+}
+
+// Track copy code click
+async function trackCopyCode({ offerId, code }) {
+  try {
+    console.log('[track] copy-code-click:', { offerId, code });
+  } catch (err) {
+    console.warn("Copy code tracking failed", err);
+  }
+}
+
+// Track redirect
+async function trackRedirect({ offerId, code }) {
+  try {
+    console.log('[track] redirect-click:', { offerId, code });
+  } catch (err) {
+    console.warn("Redirect tracking failed", err);
+  }
+}
+
+// Convert external image URL to data URL for compatibility with Shopify Extensions
+async function imageUrlToDataUrl(url) {
+  if (!url) return null;
+  
+  // Check if already a data URL
+  if (url.startsWith('data:')) {
+    return url;
+  }
+  
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const reader = new FileReader();
+    
+    return new Promise((resolve, reject) => {
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn(`Failed to convert image ${url} to data URL:`, err);
+    return null;
+  }
+}
+
 function OfferCard({
   offerId,
   brand,
@@ -44,18 +97,149 @@ function OfferCard({
   toShopDomain,
   toShopId,
 }) {
-  const query = new URLSearchParams();
-  if (orderId) query.set("orderId", orderId);
-  if (toShopDomain) query.set("toShopDomain", toShopDomain);
-  if (fromShopDomain) query.set("fromShopDomain", fromShopDomain);
+  const [imageDataUrl, setImageDataUrl] = useState(null);
+  const [cardState, setCardState] = useState('initial'); // initial | revealing | revealed | error
+  const [discountCode, setDiscountCode] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [copiedState, setCopiedState] = useState(false);
+  
+  // Track impression on mount
+  useEffect(() => {
+    if (orderId && toShopId) {
+      trackImpression({ offerId, orderId, fromShopId, toShopId });
+    }
+  }, [offerId, orderId, fromShopId, toShopId]);
+  
+  // Convert image URL to data URL on mount
+  useEffect(() => {
+    if (logoUrl) {
+      imageUrlToDataUrl(logoUrl).then((dataUrl) => {
+        if (dataUrl) {
+          setImageDataUrl(dataUrl);
+        }
+      });
+    }
+  }, [logoUrl]);
 
-  const offerUrl = orderId
-    ? `${APP_BASE_URL}/r/${offerId}?${query.toString()}`
-    : `${APP_BASE_URL}/r/${offerId}?${query.toString()}`;
+  const handleFirstCtaClick = async (e) => {
+    e.preventDefault();
+    
+    // Prevent double-clicks while revealing
+    if (cardState === 'revealing') return;
+    
+    setCardState('revealing');
+    setErrorMessage(null);
 
-  if (orderId && toShopId) {
-    trackImpression({ offerId, orderId, fromShopId, toShopId });
-  }
+    try {
+      const response = await fetch(`${APP_BASE_URL}/api/activate-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          offerId,
+          toShopDomain,
+          fromShopDomain,
+          orderId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to activate code');
+      }
+
+      setDiscountCode(data.code);
+      setCardState('revealed');
+      trackCodeRevealSuccess({ offerId, code: data.code });
+      console.log('[OfferCard] code revealed:', data.code);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setErrorMessage(errorMsg);
+      setCardState('error');
+      console.error('[OfferCard] activation failed:', err);
+    }
+  };
+
+  const handleCopyCode = async (e) => {
+    e.preventDefault();
+    
+    if (!discountCode) return;
+
+    try {
+      // Try modern Clipboard API first
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(discountCode);
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = discountCode;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      trackCopyCode({ offerId, code: discountCode });
+      
+      // Show "Copied!" state temporarily
+      setCopiedState(true);
+      setTimeout(() => setCopiedState(false), 2000);
+      
+      console.log('[OfferCard] code copied:', discountCode);
+    } catch (err) {
+      console.error('[OfferCard] copy failed:', err);
+    }
+  };
+
+  const handleSecondCtaClick = (e) => {
+    e.preventDefault();
+    
+    if (!discountCode) return;
+
+    trackRedirect({ offerId, code: discountCode });
+    
+    // Redirect to partner shop with code in URL
+    const redirectUrl = `https://${toShopDomain}/discount/${discountCode}?redirect=/`;
+    window.location.href = redirectUrl;
+  };
+
+  // Determine CTA button state and text
+  const getCtaProps = () => {
+    if (cardState === 'revealing') {
+      return {
+        disabled: true,
+        text: 'Loading...',
+        onClick: null,
+      };
+    }
+    
+    if (cardState === 'revealed') {
+      return {
+        disabled: false,
+        text: 'Shop now',
+        onClick: handleSecondCtaClick,
+      };
+    }
+    
+    if (cardState === 'error') {
+      return {
+        disabled: false,
+        text: 'Try again',
+        onClick: handleFirstCtaClick,
+      };
+    }
+    
+    // initial state
+    return {
+      disabled: false,
+      text: 'View offer',
+      onClick: handleFirstCtaClick,
+    };
+  };
+
+  const ctaProps = getCtaProps();
 
   return h(
     's-stack',
@@ -77,7 +261,7 @@ function OfferCard({
         
         // Logo
         h('s-image', {
-          src: logoUrl || 'https://placehold.co/64x64?text=Logo',
+          src: imageDataUrl || 'https://placehold.co/64x64?text=Logo',
           alt: `${brand} logo`,
           width: 64,
           height: 64,
@@ -104,14 +288,49 @@ function OfferCard({
       description
     ),
 
-    // CTA
+    // Revealed code section (only shown in revealed/error state)
+    cardState !== 'initial' && cardState !== 'revealing'
+      ? h(
+          's-box',
+          { padding: 'small', background: 'info' },
+          h(
+            's-stack',
+            { gap: 'small' },
+            h('s-text', { size: 'small', appearance: 'subdued' }, 'Your code:'),
+            h(
+              's-button',
+              {
+                kind: 'secondary',
+                onClick: handleCopyCode,
+                title: 'Click to copy',
+              },
+              copiedState ? '✓ Copied!' : (copiedState ? '✓ Copied!' : discountCode)
+            )
+          )
+        )
+      : null,
+
+    // Error message (only shown in error state)
+    cardState === 'error'
+      ? h(
+          's-box',
+          { padding: 'small' },
+          h('s-text', { size: 'small', appearance: 'warning' }, 
+            `Error: ${errorMessage || 'Failed to load code'}`
+          )
+        )
+      : null,
+
+    // CTA button
     h(
-      's-link',
+      's-button',
       {
-        href: offerUrl,
-        target: '_blank',
+        kind: cardState === 'initial' ? 'primary' : 'secondary',
+        disabled: ctaProps.disabled,
+        onClick: ctaProps.onClick,
+        inlineSize: 'fill',
       },
-      'View offer'
+      ctaProps.text
     )
   );
 }
@@ -168,8 +387,9 @@ function App() {
         gap: 'base',
         gridTemplateColumns: '1fr 1fr',
       },
-      offersState.map((offerItem) =>
-        h(OfferCard, {
+      offersState.map((offerItem) => {
+        console.log('[App] rendering offer:', { brand: offerItem.brand, logoUrl: offerItem.logoUrl });
+        return h(OfferCard, {
           key: offerItem.offerId,
           offerId: offerItem.offerId,
           brand: offerItem.brand,
@@ -181,8 +401,8 @@ function App() {
           fromShopId: sourceShopId,
           toShopDomain: offerItem.toShopDomain,
           toShopId: offerItem.toShopId,
-        }),
-      )
+        });
+      })
     )
   );
 }
