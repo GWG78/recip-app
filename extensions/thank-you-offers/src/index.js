@@ -133,17 +133,19 @@ function OfferCard({
     setErrorMessage(null);
 
     try {
-      const response = await fetch(`${APP_BASE_URL}/api/activate-code`, {
-        method: 'POST',
+      // Build query params for GET request (no CORS issues with GET)
+      const params = new URLSearchParams({
+        offerId,
+        toShopDomain,
+        fromShopDomain: fromShopDomain || '',
+        orderId: orderId || '',
+      });
+      
+      const response = await fetch(`${APP_BASE_URL}/api/activate-code?${params.toString()}`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          offerId,
-          toShopDomain,
-          fromShopDomain,
-          orderId,
-        }),
       });
 
       const data = await response.json();

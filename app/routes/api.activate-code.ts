@@ -22,6 +22,7 @@ import { resolveAdminClient } from "../services/createPoolCodes";
  *   - success: boolean
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return new Response(null, {
       headers: {
@@ -30,6 +31,86 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
+  }
+
+  if (request.method === "GET") {
+    try {
+      const url = new URL(request.url);
+      const offerId = url.searchParams.get("offerId");
+      const toShopDomain = url.searchParams.get("toShopDomain");
+      const fromShopDomain = url.searchParams.get("fromShopDomain");
+      const orderId = url.searchParams.get("orderId");
+
+      if (!offerId || !toShopDomain) {
+        return Response.json(
+          { error: "Missing offerId or toShopDomain" },
+          { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+
+      // Find the destination shop
+      const toShop = await db.shop.findUnique({
+        where: { shopDomain: toShopDomain },
+        select: { id: true, shopDomain: true },
+      });
+
+      if (!toShop) {
+        return Response.json(
+          { error: "Destination shop not found" },
+          { status: 404, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+
+      // Find source shop if provided
+      const fromShop = fromShopDomain
+        ? await db.shop.findUnique({
+            where: { shopDomain: fromShopDomain },
+            select: { id: true },
+          })
+        : null;
+
+      // Try to get admin client for destination shop
+      let adminClient;
+      try {
+        adminClient = await resolveAdminClient(toShop.id);
+      } catch (error) {
+        console.log(
+          `[activate-code] no admin access for destination shop ${toShopDomain}, skipping Shopify updates`
+        );
+      }
+
+      // Activate a code from the pool
+      const activatedCode = await activateDiscountFromPool({
+        toShopId: toShop.id,
+        fromShopId: fromShop?.id,
+        offerId,
+        orderId: orderId || undefined,
+        adminClient,
+      });
+
+      return Response.json(
+        {
+          success: true,
+          code: activatedCode.code,
+          expiresAt: activatedCode.endsAt?.toISOString() || null,
+        },
+        {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          },
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[activate-code] GET error: ${message}`);
+
+      return Response.json(
+        { error: "Failed to activate code", details: message },
+        { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
   }
 
   return Response.json(
