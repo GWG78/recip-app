@@ -167,10 +167,18 @@ function OfferCard({
   };
 
   const handleCopyCode = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (e && e.stopPropagation) e.stopPropagation();
+    console.log('[OfferCard] handleCopyCode called', { cardState, discountCode });
     
-    if (!discountCode) return;
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    }
+    
+    if (!discountCode) {
+      console.warn('[OfferCard] no discount code to copy');
+      return;
+    }
 
     try {
       // Try modern Clipboard API first
@@ -180,6 +188,8 @@ function OfferCard({
         // Fallback for older browsers
         const textarea = document.createElement('textarea');
         textarea.value = discountCode;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999999px';
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
@@ -190,7 +200,11 @@ function OfferCard({
       
       // Show "Copied!" state temporarily
       setCopiedState(true);
-      setTimeout(() => setCopiedState(false), 2000);
+      console.log('[OfferCard] copied, showing feedback for 2s');
+      setTimeout(() => {
+        console.log('[OfferCard] resetting copied state');
+        setCopiedState(false);
+      }, 2000);
       
       console.log('[OfferCard] code copied:', discountCode);
     } catch (err) {
@@ -324,6 +338,20 @@ function OfferCard({
               inlineSize: 'fill',
             },
             ctaProps.text
+          )
+        )
+      : null,
+
+    // Loading message (shown during reveal)
+    cardState === 'revealing'
+      ? h(
+          's-box',
+          { padding: 'small' },
+          h(
+            's-stack',
+            { gap: 'small', inlineAlign: 'center' },
+            h('s-text', { size: 'small', appearance: 'subdued' }, '⏳ Generating your discount code...'),
+            h('s-text', { size: 'extra-small', appearance: 'subdued' }, 'This may take a moment')
           )
         )
       : null,
