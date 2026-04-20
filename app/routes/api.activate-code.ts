@@ -4,6 +4,10 @@ import db from "../db.server";
 import { activateDiscountFromPool } from "../services/activateDiscountFromPool";
 import { resolveAdminClient } from "../services/createPoolCodes";
 
+function isShopifySyncedDiscount(gid: string | null | undefined) {
+  return typeof gid === "string" && gid.startsWith("gid://shopify/DiscountCodeNode/");
+}
+
 /**
  * POST /api/activate-code
  * 
@@ -93,6 +97,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           success: true,
           code: activatedCode.code,
           expiresAt: activatedCode.endsAt?.toISOString() || null,
+          shopifySynced: isShopifySyncedDiscount(activatedCode.shopifyDiscountGid),
         },
         {
           headers: {
@@ -200,6 +205,7 @@ export const action = async ({ request }: LoaderFunctionArgs) => {
         success: true,
         code: activatedCode.code,
         expiresAt: activatedCode.endsAt?.toISOString() || null,
+        shopifySynced: isShopifySyncedDiscount(activatedCode.shopifyDiscountGid),
       },
       {
         headers: {

@@ -223,8 +223,9 @@ export async function ensureDiscountPool(toShopId: string, options: EnsurePoolOp
 
     const code = generateCode(prefix);
     
-    // Always create DB record first - we can activate codes even without Shopify GID
-    const generatedGid = `gid://shopify/DiscountCode/${code}`;
+    // DB-only placeholder when Shopify creation fails.
+    // Use a non-Shopify namespace so downstream code can detect and skip API updates.
+    const generatedGid = `gid://recip/DiscountCodePlaceholder/${code}`;
     
     try {
       const shopifyResult = await createShopifyDiscountCode({

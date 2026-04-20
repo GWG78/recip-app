@@ -26,6 +26,10 @@ type AdminGraphqlClient = {
   ) => Promise<Response>;
 };
 
+function isShopifyDiscountNodeGid(gid: string | null | undefined) {
+  return typeof gid === "string" && gid.startsWith("gid://shopify/DiscountCodeNode/");
+}
+
 async function updateShopifyDiscount(
   adminClient: AdminGraphqlClient,
   discountGid: string,
@@ -136,16 +140,22 @@ export async function activateDiscountFromPool({
     return activatedCode;
   });
 
-  // 4️⃣ Update Shopify discount timing (skip if no admin access)
+  // 4️⃣ Update Shopify discount timing (skip if no admin access or DB-only placeholder code)
   if (adminClient) {
     try {
-      await updateShopifyDiscount(
-        adminClient,
-        activatedCode.shopifyDiscountGid,
-        activatedCode.startsAt,
-        activatedCode.endsAt,
-      );
-      console.log(`[activation] updated Shopify discount ${activatedCode.code}`);
+      if (!isShopifyDiscountNodeGid(activatedCode.shopifyDiscountGid)) {
+        console.log(
+          `[activation] skipping Shopify update for ${activatedCode.code} (non-Shopify placeholder gid: ${activatedCode.shopifyDiscountGid})`,
+        );
+      } else {
+        await updateShopifyDiscount(
+          adminClient,
+          activatedCode.shopifyDiscountGid,
+          activatedCode.startsAt,
+          activatedCode.endsAt,
+        );
+        console.log(`[activation] updated Shopify discount ${activatedCode.code}`);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[activation] failed to update Shopify discount ${activatedCode.code}: ${message}`);
