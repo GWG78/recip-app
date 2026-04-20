@@ -78,27 +78,6 @@ async function trackImpression({ offerId, orderId, fromShopId, toShopId }) {
   }
 }
 
-async function imageUrlToDataUrl(url) {
-  if (!url) return null;
-  if (url.startsWith('data:')) return url;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return url;
-
-    const blob = await response.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result || url);
-      reader.onerror = () => resolve(url);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn('[logo] failed to convert image URL', err);
-    return url;
-  }
-}
-
 function OfferCard({
   offerId,
   brand,
@@ -117,6 +96,7 @@ function OfferCard({
   const [errorMessage, setErrorMessage] = useState(null);
   const [copiedState, setCopiedState] = useState(false);
   const [shopifySynced, setShopifySynced] = useState(true);
+  const [logoFailed, setLogoFailed] = useState(false);
   const canCopyCode = Boolean(
     (typeof shopify !== 'undefined' && shopify?.clipboard?.writeText) ||
       navigator?.clipboard?.writeText
@@ -129,22 +109,8 @@ function OfferCard({
   }, [offerId, orderId, fromShopId, toShopId]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (!logoUrl) {
-      setImageDataUrl(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    imageUrlToDataUrl(logoUrl).then((dataUrl) => {
-      if (!cancelled && dataUrl) setImageDataUrl(dataUrl);
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    setImageDataUrl(logoUrl || null);
+    setLogoFailed(false);
   }, [logoUrl]);
 
   const handleFirstCtaClick = async (e) => {
@@ -223,14 +189,36 @@ function OfferCard({
       h(
         's-stack',
         { gap: 'base', direction: 'inline', alignItems: 'start' },
-        imageDataUrl
-          ? h('s-image', {
-              src: imageDataUrl,
-              alt: `${brand} logo`,
-              width: 64,
-              height: 64,
-            })
-          : null,
+        h(
+          's-box',
+          {
+            border: 'base',
+            borderRadius: 'base',
+            background: 'base',
+            padding: 'none',
+            inlineSize: '64px',
+            blockSize: '64px',
+            overflow: 'hidden',
+          },
+          imageDataUrl && !logoFailed
+            ? h('s-image', {
+                src: imageDataUrl,
+                alt: `${brand} logo`,
+                inlineSize: 'fill',
+                aspectRatio: '1/1',
+                objectFit: 'cover',
+                onError: () => setLogoFailed(true),
+              })
+            : h(
+                's-box',
+                {
+                  padding: 'small',
+                  inlineSize: 'fill',
+                  blockSize: 'fill',
+                },
+                h('s-text', { emphasis: true }, (brand || '?').slice(0, 1).toUpperCase())
+              )
+        ),
         h(
           's-stack',
           { gap: 'none' },
@@ -263,10 +251,12 @@ function OfferCard({
           ),
           cardState === 'revealed'
             ? h(
-                's-link',
+                's-button',
                 {
-                  to: redirectUrl,
-                  external: true,
+                  href: redirectUrl,
+                  target: '_blank',
+                  variant: 'secondary',
+                  inlineSize: 'fill',
                 },
                 'Shop now'
               )
