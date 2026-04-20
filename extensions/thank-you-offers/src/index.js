@@ -266,6 +266,7 @@ function OfferCard({
                 's-link',
                 {
                   to: redirectUrl,
+                  external: true,
                 },
                 'Shop now'
               )
