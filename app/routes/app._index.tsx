@@ -9,8 +9,8 @@ import {
   Badge,
   Button,
   Thumbnail,
-  BlockStack,
-  InlineStack,
+  VerticalStack,
+  HorizontalStack,
   Divider,
   Banner,
 } from "@shopify/polaris";
@@ -44,14 +44,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 function SettingRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <InlineStack align="space-between" blockAlign="start" gap="400">
+    <HorizontalStack align="space-between" blockAlign="start" gap="400">
       <Text as="span" variant="bodyMd" tone="subdued">
         {label}
       </Text>
       <Text as="span" variant="bodyMd">
         {value}
       </Text>
-    </InlineStack>
+    </HorizontalStack>
   );
 }
 
@@ -83,15 +83,15 @@ export default function Home() {
           )}
 
           <Layout.Section>
-            <BlockStack gap="400">
+            <VerticalStack gap="400">
               {isSetUp && (
                 <Card padding="500">
-                  <BlockStack gap="400">
+                  <VerticalStack gap="400">
                     <Text as="h2" variant="headingMd">
                       Brand
                     </Text>
 
-                    <InlineStack gap="400" blockAlign="start">
+                    <HorizontalStack gap="400" blockAlign="start">
                       {data.logoUrl ? (
                         <Thumbnail
                           source={data.logoUrl}
@@ -117,7 +117,7 @@ export default function Home() {
                           {(data.brandName ?? "?").charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <BlockStack gap="100">
+                      <VerticalStack gap="100">
                         <Text as="p" variant="headingSm">
                           {data.brandName}
                         </Text>
@@ -126,12 +126,12 @@ export default function Home() {
                             {data.brandDescription}
                           </Text>
                         )}
-                      </BlockStack>
-                    </InlineStack>
+                      </VerticalStack>
+                    </HorizontalStack>
 
                     <Divider />
 
-                    <BlockStack gap="300">
+                    <VerticalStack gap="300">
                       <SettingRow label="Offer" value={offerText} />
                       <SettingRow
                         label="Eligibility"
@@ -151,8 +151,8 @@ export default function Home() {
                           )
                         }
                       />
-                    </BlockStack>
-                  </BlockStack>
+                    </VerticalStack>
+                  </VerticalStack>
                 </Card>
               )}
 
@@ -163,7 +163,7 @@ export default function Home() {
               >
                 {isSetUp ? "Edit settings" : "Get started with onboarding"}
               </Button>
-            </BlockStack>
+            </VerticalStack>
           </Layout.Section>
         </Layout>
       </Page>
