@@ -207,33 +207,63 @@ async function fetchShopLogoFromAdmin(adminGraphql: any) {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  let logoUrl: string | null = null;
+  const result = {
+    logoUrl: null as string | null,
+    brandName: "" as string,
+    description: "" as string,
+    productUrls: "" as string,
+    monthlyVolume: null as string | null,
+    friendlyBrands: "" as string,
+    offerValue: "" as string,
+    offerType: "percentage" as "percentage" | "fixed",
+    newCustomersOnly: false as boolean,
+    participateNetwork: true as boolean,
+  };
 
   try {
-    const { admin } = await authenticate.admin(request);
-    logoUrl = await fetchShopLogoFromAdmin(admin.graphql);
+    const { admin, session } = await authenticate.admin(request);
+    await fetchShopLogoFromAdmin(admin.graphql);
+
+    const shop = await db.shop.findUnique({
+      where: { shopDomain: session.shop },
+      include: { settings: true },
+    });
+
+    const s = shop?.settings ?? null;
+    if (s) {
+      result.logoUrl = s.logoUrl ?? null;
+      result.brandName = s.brandName ?? "";
+      result.description = s.brandDescription ?? "";
+      result.productUrls = (s.productUrls ?? []).join("\n");
+      result.monthlyVolume = s.monthlyVolume ?? null;
+      result.friendlyBrands = (s.friendlyBrands ?? []).join("\n");
+      result.offerValue = s.discountValue ? String(Number(s.discountValue)) : "";
+      result.offerType = s.discountType === "FIXED" ? "fixed" : "percentage";
+      result.newCustomersOnly = s.newCustomersOnly ?? false;
+      result.participateNetwork = s.participateNetwork ?? true;
+    }
   } catch (error) {
-    console.log(`[app.onboarding] loader error:`, error);
+    console.log(`[app.onboarding] loader error:`, error instanceof Error ? error.message : error);
   }
 
-  return Response.json({ logoUrl });
+  return Response.json(result);
 };
 
 export default function OnboardingPage() {
-  const { logoUrl } = useLoaderData<typeof loader>();
-  const [brandName, setBrandName] = useState("");
-  const [description, setDescription] = useState("");
-  const [productUrls, setProductUrls] = useState("");
-  const [monthlyVolume, setMonthlyVolume] = useState<string | undefined>();
-  const [friendlyBrands, setFriendlyBrands] = useState("");
-  const [offerValue, setOfferValue] = useState("");
-  const [offerType, setOfferType] = useState<"percentage" | "fixed">("percentage");
-  const [newCustomersOnly, setNewCustomersOnly] = useState(false);
-  const [participateNetwork, setParticipateNetwork] = useState(true);
+  const loaded = useLoaderData<typeof loader>();
+  const [brandName, setBrandName] = useState(loaded.brandName ?? "");
+  const [description, setDescription] = useState(loaded.description ?? "");
+  const [productUrls, setProductUrls] = useState(loaded.productUrls ?? "");
+  const [monthlyVolume, setMonthlyVolume] = useState<string | undefined>(loaded.monthlyVolume ?? undefined);
+  const [friendlyBrands, setFriendlyBrands] = useState(loaded.friendlyBrands ?? "");
+  const [offerValue, setOfferValue] = useState(loaded.offerValue ?? "");
+  const [offerType, setOfferType] = useState<"percentage" | "fixed">(loaded.offerType ?? "percentage");
+  const [newCustomersOnly, setNewCustomersOnly] = useState(loaded.newCustomersOnly ?? false);
+  const [participateNetwork, setParticipateNetwork] = useState(loaded.participateNetwork ?? true);
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [userLogoUrl, setUserLogoUrl] = useState<string>(logoUrl || "");
+  const [userLogoUrl, setUserLogoUrl] = useState<string>(loaded.logoUrl || "");
 
   const productUrlsError = productUrls.trim().length > 0 ? validateProductUrls(productUrls) : "";
 
@@ -259,12 +289,12 @@ export default function OnboardingPage() {
     description: description.trim(),
     productUrls: productUrls
       .split(/\r?\n/)
-      .map((line) => line.trim())
+      .map((line: string) => line.trim())
       .filter(Boolean),
     monthlyVolume,
     friendlyBrands: friendlyBrands
       .split(/\r?\n/)
-      .map((line) => line.trim())
+      .map((line: string) => line.trim())
       .filter(Boolean),
     offerValue: offerValue.trim() || null,
     offerType,
@@ -283,20 +313,24 @@ export default function OnboardingPage() {
       return;
     }
 
-    const response = await fetch("/api/onboarding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formPayload),
-    });
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formPayload),
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    if (!response.ok) {
-      setSaveError(result?.error || "Unable to save your onboarding details.");
-      return;
+      if (!response.ok) {
+        setSaveError(result?.error || "Unable to save your onboarding details.");
+        return;
+      }
+
+      setSaveSuccess(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Unable to save your onboarding details.");
     }
-
-    setSaveSuccess(true);
     // TODO: trigger the next AI categorisation step after submit
     // Example: fetch("/api/onboarding/categorize", { method: "POST", ... })
   };
