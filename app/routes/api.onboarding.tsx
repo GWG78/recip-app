@@ -81,30 +81,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     },
   });
 
-  // Create or update FriendlyBrand records from the form input
+  // Replace friendly brand records atomically to avoid partial state on concurrent requests
   if (body.friendlyBrands && body.friendlyBrands.length > 0) {
-    // Delete existing friendly brands for this shop
-    await db.friendlyBrand.deleteMany({
-      where: { shopId: shop.id },
-    });
+    const normalizedDomains = body.friendlyBrands
+      .map((b) =>
+        String(b)
+          .trim()
+          .toLowerCase()
+          .replace(/^https?:\/\//, "")
+          .replace(/\/$/, "")
+      )
+      .filter(Boolean);
 
-    // Create new ones from the form input
-    for (const brandName of body.friendlyBrands) {
-      const normalizedDomain = String(brandName)
-        .trim()
-        .toLowerCase()
-        .replace(/^https?:\/\//, "")
-        .replace(/\/$/, "");
-
-      if (normalizedDomain) {
-        await db.friendlyBrand.create({
-          data: {
-            shopId: shop.id,
-            brandDomain: normalizedDomain,
-          },
-        });
-      }
-    }
+    await db.$transaction([
+      db.friendlyBrand.deleteMany({ where: { shopId: shop.id } }),
+      ...normalizedDomains.map((brandDomain) =>
+        db.friendlyBrand.create({ data: { shopId: shop.id, brandDomain } })
+      ),
+    ]);
   }
 
   console.log("[onboarding] shop=", session.shop, {

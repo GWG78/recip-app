@@ -37,6 +37,12 @@ type Pages = {
       "id": string;
     };
   };
+  "/api/activate-code": {
+    params: {};
+  };
+  "/api/onboarding": {
+    params: {};
+  };
   "/api/settings": {
     params: {};
   };
@@ -62,6 +68,9 @@ type Pages = {
   "/app/additional": {
     params: {};
   };
+  "/app/onboarding": {
+    params: {};
+  };
   "/app/html": {
     params: {};
   };
@@ -70,7 +79,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/html";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/activate-code" | "/api/onboarding" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/onboarding" | "/app/html";
   };
   "routes/webhooks.app.scopes_update.tsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -100,6 +109,14 @@ type RouteFiles = {
     id: "routes/api.friendly-brands.$id";
     page: "/api/friendly-brands/:id";
   };
+  "routes/api.activate-code.ts": {
+    id: "routes/api.activate-code";
+    page: "/api/activate-code";
+  };
+  "routes/api.onboarding.tsx": {
+    id: "routes/api.onboarding";
+    page: "/api/onboarding";
+  };
   "routes/api.settings.tsx": {
     id: "routes/api.settings";
     page: "/api/settings";
@@ -126,11 +143,15 @@ type RouteFiles = {
   };
   "routes/app.tsx": {
     id: "routes/app";
-    page: "/app" | "/app/additional" | "/app/html";
+    page: "/app" | "/app/additional" | "/app/onboarding" | "/app/html";
   };
   "routes/app.additional.tsx": {
     id: "routes/app.additional";
     page: "/app/additional";
+  };
+  "routes/app.onboarding.tsx": {
+    id: "routes/app.onboarding";
+    page: "/app/onboarding";
   };
   "routes/app._index.tsx": {
     id: "routes/app._index";
@@ -151,6 +172,8 @@ type RouteModules = {
   "routes/api.events.impression": typeof import("./app/routes/api.events.impression.ts");
   "routes/api.friendly-brands": typeof import("./app/routes/api.friendly-brands.tsx");
   "routes/api.friendly-brands.$id": typeof import("./app/routes/api.friendly-brands.$id.tsx");
+  "routes/api.activate-code": typeof import("./app/routes/api.activate-code.ts");
+  "routes/api.onboarding": typeof import("./app/routes/api.onboarding.tsx");
   "routes/api.settings": typeof import("./app/routes/api.settings.tsx");
   "routes/api.offers": typeof import("./app/routes/api.offers.ts");
   "routes/auth.login": typeof import("./app/routes/auth.login/route.tsx");
@@ -159,6 +182,7 @@ type RouteModules = {
   "routes/auth.$": typeof import("./app/routes/auth.$.tsx");
   "routes/app": typeof import("./app/routes/app.tsx");
   "routes/app.additional": typeof import("./app/routes/app.additional.tsx");
+  "routes/app.onboarding": typeof import("./app/routes/app.onboarding.tsx");
   "routes/app._index": typeof import("./app/routes/app._index.tsx");
   "routes/app.html": typeof import("./app/routes/app.html.tsx");
 };

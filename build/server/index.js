@@ -111,7 +111,7 @@ const route0 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProper
   __proto__: null,
   default: root
 }, Symbol.toStringTag, { value: "Module" }));
-const action$8 = async ({
+const action$9 = async ({
   request
 }) => {
   const {
@@ -136,9 +136,9 @@ const action$8 = async ({
 };
 const route1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$8
+  action: action$9
 }, Symbol.toStringTag, { value: "Module" }));
-const action$7 = async ({
+const action$8 = async ({
   request
 }) => {
   const {
@@ -158,11 +158,11 @@ const action$7 = async ({
 };
 const route2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$7
+  action: action$8
 }, Symbol.toStringTag, { value: "Module" }));
 const route3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$7
+  action: action$8
 }, Symbol.toStringTag, { value: "Module" }));
 function buildSheetsUrl(baseUrl, apiKey) {
   const missing = [];
@@ -383,7 +383,7 @@ async function ensureDiscountPool(toShopId, options = {}) {
     });
     if (currentPool >= poolSize) break;
     const code = generateCode(prefix);
-    const generatedGid = `gid://shopify/DiscountCode/${code}`;
+    const generatedGid = `gid://recip/DiscountCodePlaceholder/${code}`;
     try {
       const shopifyResult = await createShopifyDiscountCode({
         adminClient,
@@ -448,7 +448,7 @@ function extractOrderDiscountCodes(payload) {
   }).filter((code) => Boolean(code))) ?? [];
   return [.../* @__PURE__ */ new Set([...fromDiscountCodes, ...fromApplications])];
 }
-const action$6 = async ({
+const action$7 = async ({
   request
 }) => {
   var _a2, _b;
@@ -554,9 +554,9 @@ const action$6 = async ({
 };
 const route4 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$6
+  action: action$7
 }, Symbol.toStringTag, { value: "Module" }));
-async function action$5({
+async function action$6({
   request
 }) {
   var _a2, _b;
@@ -656,9 +656,9 @@ async function action$5({
 }
 const route5 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$5
+  action: action$6
 }, Symbol.toStringTag, { value: "Module" }));
-const loader$b = async ({
+const loader$c = async ({
   request
 }) => {
   console.log("[friendly-brands] GET", request.url);
@@ -685,7 +685,7 @@ const loader$b = async ({
   });
   return Response.json(brands);
 };
-const action$4 = async ({
+const action$5 = async ({
   request
 }) => {
   console.log("[friendly-brands] POST", request.url);
@@ -737,10 +737,10 @@ const action$4 = async ({
 };
 const route6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$4,
-  loader: loader$b
+  action: action$5,
+  loader: loader$c
 }, Symbol.toStringTag, { value: "Module" }));
-const action$3 = async ({
+const action$4 = async ({
   request,
   params
 }) => {
@@ -783,7 +783,404 @@ const action$3 = async ({
 };
 const route7 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  action: action$3
+  action: action$4
+}, Symbol.toStringTag, { value: "Module" }));
+async function trackEventTx(tx, {
+  type,
+  fromShopId,
+  toShopId,
+  discountCodeId = null,
+  meta = {}
+}) {
+  return tx.referralEvent.create({
+    data: {
+      type,
+      fromShopId,
+      toShopId,
+      discountCodeId,
+      meta
+    }
+  });
+}
+const EXPIRY_HOURS = 72;
+const UPDATE_DISCOUNT_MUTATION = `
+mutation discountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
+  discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
+    codeDiscountNode {
+      id
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+`;
+function isShopifyDiscountNodeGid(gid) {
+  return typeof gid === "string" && gid.startsWith("gid://shopify/DiscountCodeNode/");
+}
+async function updateShopifyDiscount(adminClient, discountGid, startsAt, endsAt) {
+  var _a2, _b;
+  const response = await adminClient.graphql(UPDATE_DISCOUNT_MUTATION, {
+    variables: {
+      id: discountGid,
+      basicCodeDiscount: {
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString()
+      }
+    }
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Shopify API HTTP ${response.status}: ${body}`);
+  }
+  const payload = await response.json();
+  if ((_a2 = payload.errors) == null ? void 0 : _a2.length) {
+    throw new Error(payload.errors.map((e) => e.message).join("; "));
+  }
+  const result = (_b = payload.data) == null ? void 0 : _b.discountCodeBasicUpdate;
+  const userErrors = (result == null ? void 0 : result.userErrors) ?? [];
+  if (userErrors.length) {
+    throw new Error(userErrors.map((e) => e.message).filter(Boolean).join("; "));
+  }
+}
+async function activateDiscountFromPool({
+  fromShopId,
+  toShopId,
+  offerId,
+  orderId,
+  expiryHours = EXPIRY_HOURS,
+  adminClient
+}) {
+  var _a2;
+  if (adminClient) {
+    try {
+      await ensureDiscountPool(toShopId, { adminClient });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[pool] failed to ensure pool for toShopId=${toShopId}: ${message}`);
+    }
+  }
+  const now = /* @__PURE__ */ new Date();
+  const endsAt = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1e3);
+  const activatedCode = await prisma.$transaction(async (tx) => {
+    const poolCode = await tx.discountCode.findFirst({
+      where: {
+        toShopId,
+        state: "POOL"
+      },
+      orderBy: { createdAt: "asc" }
+    });
+    if (!poolCode) {
+      throw new Error("No discount codes available");
+    }
+    const activatedCode2 = await tx.discountCode.update({
+      where: { id: poolCode.id },
+      data: {
+        state: "ACTIVE",
+        activatedAt: now,
+        startsAt: now,
+        endsAt
+      }
+    });
+    await trackEventTx(tx, {
+      type: "CLICK",
+      fromShopId: fromShopId ?? toShopId,
+      toShopId,
+      discountCodeId: activatedCode2.id,
+      meta: {
+        offerId,
+        orderId
+      }
+    });
+    return activatedCode2;
+  });
+  if (adminClient) {
+    try {
+      if (!isShopifyDiscountNodeGid(activatedCode.shopifyDiscountGid)) {
+        console.log(
+          `[activation] skipping Shopify update for ${activatedCode.code} (non-Shopify placeholder gid: ${activatedCode.shopifyDiscountGid})`
+        );
+      } else {
+        await updateShopifyDiscount(
+          adminClient,
+          activatedCode.shopifyDiscountGid,
+          activatedCode.startsAt,
+          activatedCode.endsAt
+        );
+        console.log(`[activation] updated Shopify discount ${activatedCode.code}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[activation] failed to update Shopify discount ${activatedCode.code}: ${message}`);
+    }
+  } else {
+    console.log(`[activation] skipping Shopify update for ${activatedCode.code} (no admin access)`);
+  }
+  if (adminClient) {
+    try {
+      const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
+      console.log(
+        `[pool] replenish after click toShopId=${toShopId} created=${replenishResult.created} poolSize=${replenishResult.poolSize}`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[pool] replenish after activation failed toShopId=${toShopId}: ${message}`);
+    }
+  } else {
+    console.log(`[pool] skipping replenish for toShopId=${toShopId} (no admin access)`);
+  }
+  try {
+    const toShop = await prisma.shop.findUnique({
+      where: { id: toShopId },
+      select: { shopDomain: true }
+    });
+    const fromShop = fromShopId ? await prisma.shop.findUnique({
+      where: { id: fromShopId },
+      select: { shopDomain: true }
+    }) : null;
+    await sendReferralEventRow({
+      event_id: activatedCode.id,
+      event_type: "CLICK",
+      timestamp: ((_a2 = activatedCode.activatedAt) == null ? void 0 : _a2.toISOString()) || (/* @__PURE__ */ new Date()).toISOString(),
+      from_shop_domain: (fromShop == null ? void 0 : fromShop.shopDomain) ?? null,
+      to_shop_domain: (toShop == null ? void 0 : toShop.shopDomain) ?? null,
+      offer_id: offerId,
+      discount_code: activatedCode.code,
+      discount_code_id: activatedCode.id,
+      discount_state: "ACTIVE",
+      order_id: orderId ?? null,
+      order_number: null,
+      order_currency: null,
+      order_total: null,
+      line_item_count: null,
+      user_agent: null,
+      referer: null,
+      environment: process.env.NODE_ENV || null
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[activation] failed to sync CLICK event to sheets: ${message}`);
+  }
+  return activatedCode;
+}
+function isShopifySyncedDiscount(gid) {
+  return typeof gid === "string" && gid.startsWith("gid://shopify/DiscountCodeNode/");
+}
+const loader$b = async ({
+  request
+}) => {
+  var _a2;
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
+    });
+  }
+  if (request.method === "GET") {
+    try {
+      const url = new URL(request.url);
+      const offerId = url.searchParams.get("offerId");
+      const toShopDomain = url.searchParams.get("toShopDomain");
+      const fromShopDomain = url.searchParams.get("fromShopDomain");
+      const orderId = url.searchParams.get("orderId");
+      if (!offerId || !toShopDomain) {
+        return Response.json({
+          error: "Missing offerId or toShopDomain"
+        }, {
+          status: 400,
+          headers: {
+            "Access-Control-Allow-Origin": "*"
+          }
+        });
+      }
+      const toShop = await prisma.shop.findUnique({
+        where: {
+          shopDomain: toShopDomain
+        },
+        select: {
+          id: true,
+          shopDomain: true
+        }
+      });
+      if (!toShop) {
+        return Response.json({
+          error: "Destination shop not found"
+        }, {
+          status: 404,
+          headers: {
+            "Access-Control-Allow-Origin": "*"
+          }
+        });
+      }
+      const fromShop = fromShopDomain ? await prisma.shop.findUnique({
+        where: {
+          shopDomain: fromShopDomain
+        },
+        select: {
+          id: true
+        }
+      }) : null;
+      let adminClient;
+      try {
+        adminClient = await resolveAdminClient(toShop.id);
+      } catch (error) {
+        console.log(`[activate-code] no admin access for destination shop ${toShopDomain}, skipping Shopify updates`);
+      }
+      const activatedCode = await activateDiscountFromPool({
+        toShopId: toShop.id,
+        fromShopId: fromShop == null ? void 0 : fromShop.id,
+        offerId,
+        orderId: orderId || void 0,
+        adminClient
+      });
+      return Response.json({
+        success: true,
+        code: activatedCode.code,
+        expiresAt: ((_a2 = activatedCode.endsAt) == null ? void 0 : _a2.toISOString()) || null,
+        shopifySynced: isShopifySyncedDiscount(activatedCode.shopifyDiscountGid)
+      }, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type"
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[activate-code] GET error: ${message}`);
+      return Response.json({
+        error: "Failed to activate code",
+        details: message
+      }, {
+        status: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+  }
+  return Response.json({
+    error: "Method not allowed"
+  }, {
+    status: 405
+  });
+};
+const action$3 = async ({
+  request
+}) => {
+  var _a2;
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
+    });
+  }
+  if (request.method !== "POST") {
+    return Response.json({
+      error: "Method not allowed"
+    }, {
+      status: 405,
+      headers: {
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
+  try {
+    const body = await request.json();
+    const {
+      offerId,
+      toShopDomain,
+      fromShopDomain,
+      orderId
+    } = body;
+    if (!offerId || !toShopDomain) {
+      return Response.json({
+        error: "Missing offerId or toShopDomain"
+      }, {
+        status: 400,
+        headers: {
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+    const toShop = await prisma.shop.findUnique({
+      where: {
+        shopDomain: toShopDomain
+      },
+      select: {
+        id: true,
+        shopDomain: true
+      }
+    });
+    if (!toShop) {
+      return Response.json({
+        error: "Destination shop not found"
+      }, {
+        status: 404,
+        headers: {
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+    const fromShop = fromShopDomain ? await prisma.shop.findUnique({
+      where: {
+        shopDomain: fromShopDomain
+      },
+      select: {
+        id: true
+      }
+    }) : null;
+    let adminClient;
+    try {
+      adminClient = await resolveAdminClient(toShop.id);
+    } catch (error) {
+      console.log(`[activate-code] no admin access for destination shop ${toShopDomain}, skipping Shopify updates`);
+    }
+    const activatedCode = await activateDiscountFromPool({
+      toShopId: toShop.id,
+      fromShopId: fromShop == null ? void 0 : fromShop.id,
+      offerId,
+      orderId,
+      adminClient
+    });
+    return Response.json({
+      success: true,
+      code: activatedCode.code,
+      expiresAt: ((_a2 = activatedCode.endsAt) == null ? void 0 : _a2.toISOString()) || null,
+      shopifySynced: isShopifySyncedDiscount(activatedCode.shopifyDiscountGid)
+    }, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[activate-code] error: ${message}`);
+    return Response.json({
+      error: "Failed to activate code",
+      details: message
+    }, {
+      status: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*"
+      }
+    });
+  }
+};
+const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  action: action$3,
+  loader: loader$b
 }, Symbol.toStringTag, { value: "Module" }));
 const loader$a = async ({
   request
@@ -906,7 +1303,7 @@ const action$2 = async ({
     ok: true
   });
 };
-const route8 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$2,
   loader: loader$a
@@ -1040,7 +1437,7 @@ const action$1 = async ({
   }
   return Response.json(settings);
 };
-const route9 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action: action$1,
   loader: loader$9
@@ -1183,7 +1580,7 @@ const loader$8 = async ({
     }
   });
 };
-const route10 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   loader: loader$8
 }, Symbol.toStringTag, { value: "Module" }));
@@ -1242,183 +1639,12 @@ const route$1 = UNSAFE_withComponentProps(function Auth() {
     })
   });
 });
-const route11 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   action,
   default: route$1,
   loader: loader$7
 }, Symbol.toStringTag, { value: "Module" }));
-async function trackEventTx(tx, {
-  type,
-  fromShopId,
-  toShopId,
-  discountCodeId = null,
-  meta = {}
-}) {
-  return tx.referralEvent.create({
-    data: {
-      type,
-      fromShopId,
-      toShopId,
-      discountCodeId,
-      meta
-    }
-  });
-}
-const EXPIRY_HOURS = 72;
-const UPDATE_DISCOUNT_MUTATION = `
-mutation discountCodeBasicUpdate($id: ID!, $basicCodeDiscount: DiscountCodeBasicInput!) {
-  discountCodeBasicUpdate(id: $id, basicCodeDiscount: $basicCodeDiscount) {
-    codeDiscountNode {
-      id
-    }
-    userErrors {
-      field
-      message
-      code
-    }
-  }
-}
-`;
-async function updateShopifyDiscount(adminClient, discountGid, startsAt, endsAt) {
-  var _a2, _b;
-  const response = await adminClient.graphql(UPDATE_DISCOUNT_MUTATION, {
-    variables: {
-      id: discountGid,
-      basicCodeDiscount: {
-        startsAt: startsAt.toISOString(),
-        endsAt: endsAt.toISOString()
-      }
-    }
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Shopify API HTTP ${response.status}: ${body}`);
-  }
-  const payload = await response.json();
-  if ((_a2 = payload.errors) == null ? void 0 : _a2.length) {
-    throw new Error(payload.errors.map((e) => e.message).join("; "));
-  }
-  const result = (_b = payload.data) == null ? void 0 : _b.discountCodeBasicUpdate;
-  const userErrors = (result == null ? void 0 : result.userErrors) ?? [];
-  if (userErrors.length) {
-    throw new Error(userErrors.map((e) => e.message).filter(Boolean).join("; "));
-  }
-}
-async function activateDiscountFromPool({
-  fromShopId,
-  toShopId,
-  offerId,
-  orderId,
-  expiryHours = EXPIRY_HOURS,
-  adminClient
-}) {
-  var _a2;
-  if (adminClient) {
-    try {
-      await ensureDiscountPool(toShopId, { adminClient });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[pool] failed to ensure pool for toShopId=${toShopId}: ${message}`);
-    }
-  }
-  const now = /* @__PURE__ */ new Date();
-  const endsAt = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1e3);
-  const activatedCode = await prisma.$transaction(async (tx) => {
-    const poolCode = await tx.discountCode.findFirst({
-      where: {
-        toShopId,
-        state: "POOL"
-      },
-      orderBy: { createdAt: "asc" }
-    });
-    if (!poolCode) {
-      throw new Error("No discount codes available");
-    }
-    const activatedCode2 = await tx.discountCode.update({
-      where: { id: poolCode.id },
-      data: {
-        state: "ACTIVE",
-        activatedAt: now,
-        startsAt: now,
-        endsAt
-      }
-    });
-    await trackEventTx(tx, {
-      type: "CLICK",
-      fromShopId: fromShopId ?? toShopId,
-      toShopId,
-      discountCodeId: activatedCode2.id,
-      meta: {
-        offerId,
-        orderId
-      }
-    });
-    return activatedCode2;
-  });
-  if (adminClient) {
-    try {
-      await updateShopifyDiscount(
-        adminClient,
-        activatedCode.shopifyDiscountGid,
-        activatedCode.startsAt,
-        activatedCode.endsAt
-      );
-      console.log(`[activation] updated Shopify discount ${activatedCode.code}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[activation] failed to update Shopify discount ${activatedCode.code}: ${message}`);
-    }
-  } else {
-    console.log(`[activation] skipping Shopify update for ${activatedCode.code} (no admin access)`);
-  }
-  if (adminClient) {
-    try {
-      const replenishResult = await ensureDiscountPool(toShopId, { adminClient });
-      console.log(
-        `[pool] replenish after click toShopId=${toShopId} created=${replenishResult.created} poolSize=${replenishResult.poolSize}`
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[pool] replenish after activation failed toShopId=${toShopId}: ${message}`);
-    }
-  } else {
-    console.log(`[pool] skipping replenish for toShopId=${toShopId} (no admin access)`);
-  }
-  try {
-    const toShop = await prisma.shop.findUnique({
-      where: { id: toShopId },
-      select: { shopDomain: true }
-    });
-    const fromShop = fromShopId ? await prisma.shop.findUnique({
-      where: { id: fromShopId },
-      select: { shopDomain: true }
-    }) : null;
-    await sendReferralEventRow({
-      event_id: activatedCode.id,
-      event_type: "CLICK",
-      timestamp: ((_a2 = activatedCode.activatedAt) == null ? void 0 : _a2.toISOString()) || (/* @__PURE__ */ new Date()).toISOString(),
-      from_shop_domain: (fromShop == null ? void 0 : fromShop.shopDomain) ?? null,
-      to_shop_domain: (toShop == null ? void 0 : toShop.shopDomain) ?? null,
-      offer_id: offerId,
-      discount_code: activatedCode.code,
-      discount_code_id: activatedCode.id,
-      discount_state: "ACTIVE",
-      order_id: orderId ?? null,
-      order_number: null,
-      order_currency: null,
-      order_total: null,
-      line_item_count: null,
-      user_agent: null,
-      referer: null,
-      environment: process.env.NODE_ENV || null
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[activation] failed to sync CLICK event to sheets: ${message}`);
-  }
-  return activatedCode;
-}
 async function loader$6({
   params,
   request
@@ -1477,7 +1703,7 @@ async function loader$6({
   const redirectUrl = `https://${toShop.shopDomain}/discount/${discount.code}?redirect=/`;
   return Response.redirect(redirectUrl);
 }
-const route12 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   loader: loader$6
 }, Symbol.toStringTag, { value: "Module" }));
@@ -1544,7 +1770,7 @@ const route = UNSAFE_withComponentProps(function Home() {
     })]
   });
 });
-const route13 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: route,
   loader: loader$5
@@ -1558,7 +1784,7 @@ const loader$4 = async ({
 const headers$1 = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
-const route14 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   headers: headers$1,
   loader: loader$4
@@ -1658,7 +1884,7 @@ const ErrorBoundary = UNSAFE_withErrorBoundaryProps(function ErrorBoundary2() {
 const headers = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
-const route15 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   ErrorBoundary,
   default: app,
@@ -1700,7 +1926,7 @@ const app_additional = UNSAFE_withComponentProps(function AdditionalPage() {
     })]
   });
 });
-const route16 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: app_additional
 }, Symbol.toStringTag, { value: "Module" }));
@@ -2252,7 +2478,7 @@ const app_onboarding = UNSAFE_withComponentProps(function OnboardingPage() {
     })
   });
 });
-const route17 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: app_onboarding,
   loader: loader$2
@@ -2320,7 +2546,7 @@ const app__index = UNSAFE_withComponentProps(function Home2() {
     })]
   });
 });
-const route18 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   default: app__index,
   loader: loader$1
@@ -2337,11 +2563,11 @@ const loader = async ({
     }
   });
 };
-const route19 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+const route20 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   loader
 }, Symbol.toStringTag, { value: "Module" }));
-const serverManifest = { "entry": { "module": "/assets/entry.client-DzgJ9FzB.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-C3-JMdhV.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.scopes_update": { "id": "routes/webhooks.app.scopes_update", "parentId": "root", "path": "webhooks/app/scopes_update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.scopes_update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app_uninstalled": { "id": "routes/webhooks.app_uninstalled", "parentId": "root", "path": "webhooks/app_uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app_uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.orders.create": { "id": "routes/webhooks.orders.create", "parentId": "root", "path": "webhooks/orders/create", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.orders.create-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.events.impression": { "id": "routes/api.events.impression", "parentId": "root", "path": "api/events/impression", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.events.impression-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands": { "id": "routes/api.friendly-brands", "parentId": "root", "path": "api/friendly-brands", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands.$id": { "id": "routes/api.friendly-brands.$id", "parentId": "routes/api.friendly-brands", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.onboarding": { "id": "routes/api.onboarding", "parentId": "root", "path": "api/onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.onboarding-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.settings": { "id": "routes/api.settings", "parentId": "root", "path": "api/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.settings-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.offers": { "id": "routes/api.offers", "parentId": "root", "path": "api/offers", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.offers-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.login": { "id": "routes/auth.login", "parentId": "root", "path": "auth/login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-CuZb7FNa.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/r.$offerId": { "id": "routes/r.$offerId", "parentId": "root", "path": "r/:offerId", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/r._offerId-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-BTyQ6t07.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.additional": { "id": "routes/app.additional", "parentId": "routes/app", "path": "additional", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.additional-BHY5xze9.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.onboarding": { "id": "routes/app.onboarding", "parentId": "routes/app", "path": "onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.onboarding-C7jc5irH.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": ["/assets/app-UBlowCeV.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.html": { "id": "routes/app.html", "parentId": "routes/app", "path": "html", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/app.html-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-27e6033b.js", "version": "27e6033b", "sri": void 0 };
+const serverManifest = { "entry": { "module": "/assets/entry.client-DzgJ9FzB.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [] }, "routes": { "root": { "id": "root", "parentId": void 0, "path": "", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/root-C3-JMdhV.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.scopes_update": { "id": "routes/webhooks.app.scopes_update", "parentId": "root", "path": "webhooks/app/scopes_update", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.scopes_update-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app.uninstalled": { "id": "routes/webhooks.app.uninstalled", "parentId": "root", "path": "webhooks/app/uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app.uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.app_uninstalled": { "id": "routes/webhooks.app_uninstalled", "parentId": "root", "path": "webhooks/app_uninstalled", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.app_uninstalled-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/webhooks.orders.create": { "id": "routes/webhooks.orders.create", "parentId": "root", "path": "webhooks/orders/create", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/webhooks.orders.create-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.events.impression": { "id": "routes/api.events.impression", "parentId": "root", "path": "api/events/impression", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.events.impression-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands": { "id": "routes/api.friendly-brands", "parentId": "root", "path": "api/friendly-brands", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.friendly-brands.$id": { "id": "routes/api.friendly-brands.$id", "parentId": "routes/api.friendly-brands", "path": ":id", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.friendly-brands._id-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.activate-code": { "id": "routes/api.activate-code", "parentId": "root", "path": "api/activate-code", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.activate-code-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.onboarding": { "id": "routes/api.onboarding", "parentId": "root", "path": "api/onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.onboarding-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.settings": { "id": "routes/api.settings", "parentId": "root", "path": "api/settings", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.settings-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/api.offers": { "id": "routes/api.offers", "parentId": "root", "path": "api/offers", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/api.offers-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.login": { "id": "routes/auth.login", "parentId": "root", "path": "auth/login", "index": void 0, "caseSensitive": void 0, "hasAction": true, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-CuZb7FNa.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/r.$offerId": { "id": "routes/r.$offerId", "parentId": "root", "path": "r/:offerId", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/r._offerId-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/_index": { "id": "routes/_index", "parentId": "root", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/route-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/auth.$": { "id": "routes/auth.$", "parentId": "root", "path": "auth/*", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/auth._-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app": { "id": "routes/app", "parentId": "root", "path": "app", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": true, "module": "/assets/app-BTyQ6t07.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/AppProxyProvider-DdmIRpyq.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.additional": { "id": "routes/app.additional", "parentId": "routes/app", "path": "additional", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": false, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.additional-BHY5xze9.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.onboarding": { "id": "routes/app.onboarding", "parentId": "routes/app", "path": "onboarding", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app.onboarding-C7jc5irH.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js", "/assets/index-2H5U1vOi.js"], "css": ["/assets/app-UBlowCeV.css"], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app._index": { "id": "routes/app._index", "parentId": "routes/app", "path": void 0, "index": true, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": true, "hasErrorBoundary": false, "module": "/assets/app._index-zw1TmTq0.js", "imports": ["/assets/chunk-LFPYN7LY-DAgSEAUT.js"], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 }, "routes/app.html": { "id": "routes/app.html", "parentId": "routes/app", "path": "html", "index": void 0, "caseSensitive": void 0, "hasAction": false, "hasLoader": true, "hasClientAction": false, "hasClientLoader": false, "hasClientMiddleware": false, "hasDefaultExport": false, "hasErrorBoundary": false, "module": "/assets/app.html-l0sNRNKZ.js", "imports": [], "css": [], "clientActionModule": void 0, "clientLoaderModule": void 0, "clientMiddlewareModule": void 0, "hydrateFallbackModule": void 0 } }, "url": "/assets/manifest-b33756b8.js", "version": "b33756b8", "sri": void 0 };
 const assetsBuildDirectory = "build/client";
 const basename = "/";
 const future = { "unstable_optimizeDeps": false, "unstable_subResourceIntegrity": false, "unstable_trailingSlashAwareDataRequests": false, "unstable_previewServerPrerendering": false, "v8_middleware": false, "v8_splitRouteModules": false, "v8_viteEnvironmentApi": false };
@@ -2416,13 +2642,21 @@ const routes = {
     caseSensitive: void 0,
     module: route7
   },
+  "routes/api.activate-code": {
+    id: "routes/api.activate-code",
+    parentId: "root",
+    path: "api/activate-code",
+    index: void 0,
+    caseSensitive: void 0,
+    module: route8
+  },
   "routes/api.onboarding": {
     id: "routes/api.onboarding",
     parentId: "root",
     path: "api/onboarding",
     index: void 0,
     caseSensitive: void 0,
-    module: route8
+    module: route9
   },
   "routes/api.settings": {
     id: "routes/api.settings",
@@ -2430,7 +2664,7 @@ const routes = {
     path: "api/settings",
     index: void 0,
     caseSensitive: void 0,
-    module: route9
+    module: route10
   },
   "routes/api.offers": {
     id: "routes/api.offers",
@@ -2438,7 +2672,7 @@ const routes = {
     path: "api/offers",
     index: void 0,
     caseSensitive: void 0,
-    module: route10
+    module: route11
   },
   "routes/auth.login": {
     id: "routes/auth.login",
@@ -2446,7 +2680,7 @@ const routes = {
     path: "auth/login",
     index: void 0,
     caseSensitive: void 0,
-    module: route11
+    module: route12
   },
   "routes/r.$offerId": {
     id: "routes/r.$offerId",
@@ -2454,7 +2688,7 @@ const routes = {
     path: "r/:offerId",
     index: void 0,
     caseSensitive: void 0,
-    module: route12
+    module: route13
   },
   "routes/_index": {
     id: "routes/_index",
@@ -2462,7 +2696,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route13
+    module: route14
   },
   "routes/auth.$": {
     id: "routes/auth.$",
@@ -2470,7 +2704,7 @@ const routes = {
     path: "auth/*",
     index: void 0,
     caseSensitive: void 0,
-    module: route14
+    module: route15
   },
   "routes/app": {
     id: "routes/app",
@@ -2478,7 +2712,7 @@ const routes = {
     path: "app",
     index: void 0,
     caseSensitive: void 0,
-    module: route15
+    module: route16
   },
   "routes/app.additional": {
     id: "routes/app.additional",
@@ -2486,7 +2720,7 @@ const routes = {
     path: "additional",
     index: void 0,
     caseSensitive: void 0,
-    module: route16
+    module: route17
   },
   "routes/app.onboarding": {
     id: "routes/app.onboarding",
@@ -2494,7 +2728,7 @@ const routes = {
     path: "onboarding",
     index: void 0,
     caseSensitive: void 0,
-    module: route17
+    module: route18
   },
   "routes/app._index": {
     id: "routes/app._index",
@@ -2502,7 +2736,7 @@ const routes = {
     path: void 0,
     index: true,
     caseSensitive: void 0,
-    module: route18
+    module: route19
   },
   "routes/app.html": {
     id: "routes/app.html",
@@ -2510,7 +2744,7 @@ const routes = {
     path: "html",
     index: void 0,
     caseSensitive: void 0,
-    module: route19
+    module: route20
   }
 };
 const allowedActionOrigins = false;

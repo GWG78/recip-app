@@ -76,7 +76,7 @@ export async function action({ request }: ActionFunctionArgs) {
       environment: process.env.NODE_ENV || null,
     });
   } catch (error) {
-    console.error(`[api/events/impression] failed to sync to sheets: ${error.message}`);
+    console.error(`[api/events/impression] failed to sync to sheets: ${error instanceof Error ? error.message : String(error)}`);
     // Continue anyway - event is already in DB
   }
 

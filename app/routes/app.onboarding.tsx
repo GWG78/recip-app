@@ -47,55 +47,32 @@ function validateProductUrls(value: string) {
 }
 
 function LogoPreview({ logoUrl, brandName }: { logoUrl?: string; brandName: string }) {
-  const initials = brandName.trim().charAt(0).toUpperCase() || "R";
-
-  if (logoUrl) {
-    return (
-      <div
-        style={{
-          width: 128,
-          height: 128,
-          borderRadius: 16,
-          overflow: "hidden",
-          background: "#FFFFFF",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "none",
-          border: "none",
-        }}
-      >
-        <img
-          src={logoUrl}
-          alt={brandName || "Brand logo"}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            display: "block",
-            border: "none",
-          }}
-        />
-      </div>
-    );
-  }
+  const initial = (brandName.trim().charAt(0) || "?").toUpperCase();
 
   return (
     <div
       style={{
-        width: 128, // 8rem = 128px
-        height: 128,
-        borderRadius: 16,
-        background: "#E2E8F0",
+        width: 64,
+        height: 64,
+        flexShrink: 0,
+        border: "1px solid #E5E7EB",
+        borderRadius: 8,
+        background: "#FFFFFF",
+        overflow: "hidden",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#1F2937",
-        fontSize: 28,
-        fontWeight: 700,
       }}
     >
-      {initials}
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt={brandName || "Brand logo"}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        <span style={{ fontSize: 22, fontWeight: 700, color: "#1F2937" }}>{initial}</span>
+      )}
     </div>
   );
 }
@@ -116,9 +93,7 @@ function OfferPreviewCard({
   newCustomersOnly?: boolean;
 }) {
   const displayName = brandName.trim() || "Your brand";
-  const displayDescription = description.trim()
-    ? description
-    : "Your offer preview will appear here.";
+  const displayDescription = description.trim() || "Your offer preview will appear here.";
 
   const getOfferText = () => {
     if (!offerValue) return "Your offer will appear here";
@@ -130,52 +105,30 @@ function OfferPreviewCard({
   return (
     <div
       style={{
-        border: "1px solid #DDE4EA",
-        borderRadius: 20,
-        padding: 24,
+        border: "1px solid #E5E7EB",
+        borderRadius: 8,
+        padding: 16,
         background: "#FFFFFF",
-        boxShadow: "0 24px 80px rgba(15, 23, 42, 0.08)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+      {/* Header: logo + brand name + offer — mirrors s-stack direction:inline */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
         <LogoPreview logoUrl={logoUrl} brandName={displayName} />
-        <div>
-          <div style={{ margin: 0, fontSize: "1.2rem" }}>
-            <Text as="p" variant="headingMd">{displayName}</Text>
-          </div>
-          <div style={{ marginTop: 4, fontStyle: "italic" }}>
-            <Text as="p" variant="headingSm">{getOfferText()}</Text>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>{displayName}</span>
+          <span style={{ fontSize: 13, color: "#6B7280" }}>{getOfferText()}</span>
         </div>
       </div>
-      <div
-        style={{
-          borderRadius: 18,
-          background: "#F5F7FA",
-          padding: 20,
-          minHeight: 170,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <Text as="p" variant="bodyMd" fontWeight="bold">
-            {displayName}
-          </Text>
-          <div style={{ marginTop: 8, whiteSpace: "pre-line" }}>
-            <Text as="p" variant="bodyMd" color="subdued">
-              {displayDescription}
-            </Text>
-          </div>
-        </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 24 }}>
-          <Button disabled fullWidth>
-            Unlock offer
-          </Button>
-        </div>
-      </div>
+      {/* Description — mirrors s-text appearance:subdued */}
+      <p style={{ margin: "0 0 16px", fontSize: 14, color: "#6B7280", lineHeight: 1.5 }}>
+        {displayDescription}
+      </p>
+
+      {/* CTA — mirrors s-button kind:primary inlineSize:fill */}
+      <Button disabled fullWidth>
+        Unlock offer
+      </Button>
     </div>
   );
 }

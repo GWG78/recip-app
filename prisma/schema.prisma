@@ -80,7 +80,6 @@ model ShopSettings {
   oneTimeUse         Boolean  @default(true)
 
   allowedCountries   String[] @default([])
-  allowedMemberTypes String[] @default([])
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

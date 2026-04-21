@@ -1,5 +1,4 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { activate } from "../shopify.server";
 import db from "../db.server";
 import { activateDiscountFromPool } from "../services/activateDiscountFromPool";
 import { resolveAdminClient } from "../services/createPoolCodes";
