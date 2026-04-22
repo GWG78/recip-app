@@ -95,7 +95,7 @@ function OfferCard({
   const [errorMessage, setErrorMessage] = useState(null);
   const [copiedState, setCopiedState] = useState(false);
   const [shopifySynced, setShopifySynced] = useState(true);
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [logoReady, setLogoReady] = useState(false);
 
   useEffect(() => {
     if (orderId && fromShopId && toShopId) {
@@ -103,8 +103,15 @@ function OfferCard({
     }
   }, [offerId, orderId, fromShopId, toShopId]);
 
+  // Preload logo via a native Image object — reliable load/error detection
+  // before we attempt to render it inside the Seneca s-image component.
   useEffect(() => {
-    setLogoFailed(false);
+    setLogoReady(false);
+    if (!logoUrl) return;
+    const img = new Image();
+    img.onload = () => setLogoReady(true);
+    img.onerror = () => setLogoReady(false);
+    img.src = logoUrl;
   }, [logoUrl]);
 
   const handleFirstCtaClick = async (e) => {
@@ -190,8 +197,6 @@ function OfferCard({
     }
   };
 
-  const showLogo = logoUrl && !logoFailed;
-
   return h(
     's-stack',
     {
@@ -219,14 +224,13 @@ function OfferCard({
             blockSize: '64px',
             overflow: 'hidden',
           },
-          showLogo
-            ? h('img', {
+          logoReady
+            ? h('s-image', {
                 src: logoUrl,
                 alt: `${brand} logo`,
-                width: '64',
-                height: '64',
-                style: 'width:100%;height:100%;object-fit:cover;display:block;',
-                onError: () => setLogoFailed(true),
+                inlineSize: 'fill',
+                aspectRatio: '1/1',
+                objectFit: 'cover',
               })
             : h(
                 's-box',

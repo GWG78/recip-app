@@ -466,14 +466,19 @@ function OfferCard({
   const [errorMessage, setErrorMessage] = d2(null);
   const [copiedState, setCopiedState] = d2(false);
   const [shopifySynced, setShopifySynced] = d2(true);
-  const [logoFailed, setLogoFailed] = d2(false);
+  const [logoReady, setLogoReady] = d2(false);
   y2(() => {
     if (orderId && fromShopId && toShopId) {
       trackImpression({ offerId, orderId, fromShopId, toShopId });
     }
   }, [offerId, orderId, fromShopId, toShopId]);
   y2(() => {
-    setLogoFailed(false);
+    setLogoReady(false);
+    if (!logoUrl) return;
+    const img = new Image();
+    img.onload = () => setLogoReady(true);
+    img.onerror = () => setLogoReady(false);
+    img.src = logoUrl;
   }, [logoUrl]);
   const handleFirstCtaClick = async (e3) => {
     if (e3?.preventDefault) e3.preventDefault();
@@ -543,7 +548,6 @@ function OfferCard({
       globalThis.location.href = url;
     }
   };
-  const showLogo = logoUrl && !logoFailed;
   return _(
     "s-stack",
     {
@@ -570,13 +574,12 @@ function OfferCard({
             blockSize: "64px",
             overflow: "hidden"
           },
-          showLogo ? _("img", {
+          logoReady ? _("s-image", {
             src: logoUrl,
             alt: `${brand} logo`,
-            width: "64",
-            height: "64",
-            style: "width:100%;height:100%;object-fit:cover;display:block;",
-            onError: () => setLogoFailed(true)
+            inlineSize: "fill",
+            aspectRatio: "1/1",
+            objectFit: "cover"
           }) : _(
             "s-box",
             {
