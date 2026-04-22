@@ -90,17 +90,12 @@ function OfferCard({
   toShopDomain,
   toShopId,
 }) {
-  const [imageDataUrl, setImageDataUrl] = useState(logoUrl || null);
   const [cardState, setCardState] = useState('initial');
   const [discountCode, setDiscountCode] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [copiedState, setCopiedState] = useState(false);
   const [shopifySynced, setShopifySynced] = useState(true);
   const [logoFailed, setLogoFailed] = useState(false);
-  const canCopyCode = Boolean(
-    (typeof shopify !== 'undefined' && shopify?.clipboard?.writeText) ||
-      navigator?.clipboard?.writeText
-  );
 
   useEffect(() => {
     if (orderId && fromShopId && toShopId) {
@@ -109,7 +104,6 @@ function OfferCard({
   }, [offerId, orderId, fromShopId, toShopId]);
 
   useEffect(() => {
-    setImageDataUrl(logoUrl || null);
     setLogoFailed(false);
   }, [logoUrl]);
 
@@ -152,15 +146,24 @@ function OfferCard({
     if (e?.stopImmediatePropagation) e.stopImmediatePropagation();
 
     if (!discountCode) return;
-    if (!canCopyCode) return;
 
     try {
       if (typeof shopify !== 'undefined' && shopify?.clipboard?.writeText) {
         await shopify.clipboard.writeText(discountCode);
       } else if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(discountCode);
+      } else {
+        // execCommand fallback for restricted iframe contexts
+        const el = document.createElement('textarea');
+        el.value = discountCode;
+        el.style.position = 'fixed';
+        el.style.opacity = '0';
+        document.body.appendChild(el);
+        el.focus();
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
       }
-
       setCopiedState(true);
       setTimeout(() => setCopiedState(false), 2000);
     } catch (err) {
@@ -168,10 +171,26 @@ function OfferCard({
     }
   };
 
-  const redirectUrl =
-    discountCode && toShopDomain
-      ? `https://${toShopDomain}/discount/${discountCode}?redirect=/`
-      : null;
+  const handleShopNow = (e) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (!discountCode || !toShopDomain) return;
+
+    const url = `https://${toShopDomain}/discount/${discountCode}?redirect=/`;
+
+    try {
+      // Try to open in the top-level frame so the user leaves the thank-you page
+      if (globalThis.top && globalThis.top !== globalThis.self) {
+        globalThis.top.location.href = url;
+      } else {
+        globalThis.location.href = url;
+      }
+    } catch (_err) {
+      // Cross-origin restriction: fall back to same frame
+      globalThis.location.href = url;
+    }
+  };
+
+  const showLogo = logoUrl && !logoFailed;
 
   return h(
     's-stack',
@@ -200,13 +219,13 @@ function OfferCard({
             blockSize: '64px',
             overflow: 'hidden',
           },
-          imageDataUrl && !logoFailed
-            ? h('s-image', {
-                src: imageDataUrl,
+          showLogo
+            ? h('img', {
+                src: logoUrl,
                 alt: `${brand} logo`,
-                inlineSize: 'fill',
-                aspectRatio: '1/1',
-                objectFit: 'cover',
+                width: '64',
+                height: '64',
+                style: 'width:100%;height:100%;object-fit:cover;display:block;',
                 onError: () => setLogoFailed(true),
               })
             : h(
@@ -242,20 +261,18 @@ function OfferCard({
               {
                 kind: 'secondary',
                 onClick: handleCopyCode,
-                title: 'Click to copy',
+                title: 'Click to copy discount code',
                 size: 'small',
-                disabled: !canCopyCode,
               },
-              !canCopyCode ? `Code: ${discountCode}` : copiedState ? 'Copied!' : discountCode
+              copiedState ? 'Copied!' : discountCode
             )
           ),
           cardState === 'revealed'
             ? h(
                 's-button',
                 {
-                  href: redirectUrl,
-                  target: '_blank',
-                  variant: 'secondary',
+                  kind: 'secondary',
+                  onClick: handleShopNow,
                   inlineSize: 'fill',
                 },
                 'Shop now'
