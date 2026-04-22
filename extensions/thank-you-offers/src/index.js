@@ -165,46 +165,42 @@ function OfferCard({
     },
 
     h(
-      's-box',
-      { padding: 'none', marginBlockEnd: 'base' },
+      's-grid',
+      { gap: 'base', gridTemplateColumns: 'auto 1fr', alignItems: 'center' },
+      h(
+        's-box',
+        {
+          border: 'base',
+          borderRadius: 'base',
+          background: 'base',
+          padding: 'none',
+          inlineSize: '64px',
+          blockSize: '64px',
+          overflow: 'hidden',
+        },
+        logoReady
+          ? h('s-image', {
+              src: logoUrl,
+              alt: `${brand} logo`,
+              inlineSize: 'fill',
+              aspectRatio: '1/1',
+              objectFit: 'cover',
+            })
+          : h(
+              's-box',
+              {
+                padding: 'small',
+                inlineSize: 'fill',
+                blockSize: 'fill',
+              },
+              h('s-text', { emphasis: true }, (brand || '?').slice(0, 1).toUpperCase())
+            )
+      ),
       h(
         's-stack',
-        { gap: 'base', direction: 'inline', alignItems: 'start' },
-        h(
-          's-box',
-          {
-            border: 'base',
-            borderRadius: 'base',
-            background: 'base',
-            padding: 'none',
-            inlineSize: '64px',
-            blockSize: '64px',
-            overflow: 'hidden',
-          },
-          logoReady
-            ? h('s-image', {
-                src: logoUrl,
-                alt: `${brand} logo`,
-                inlineSize: 'fill',
-                aspectRatio: '1/1',
-                objectFit: 'cover',
-              })
-            : h(
-                's-box',
-                {
-                  padding: 'small',
-                  inlineSize: 'fill',
-                  blockSize: 'fill',
-                },
-                h('s-text', { emphasis: true }, (brand || '?').slice(0, 1).toUpperCase())
-              )
-        ),
-        h(
-          's-stack',
-          { gap: 'none' },
-          h('s-text', { emphasis: true, size: 'large' }, brand),
-          h('s-text', { size: 'small', appearance: 'subdued' }, offer)
-        )
+        { gap: 'none' },
+        h('s-text', { emphasis: true, size: 'extraLarge' }, brand),
+        h('s-text', { size: 'small', appearance: 'subdued' }, h('em', null, offer))
       )
     ),
 
