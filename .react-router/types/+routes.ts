@@ -65,6 +65,15 @@ type Pages = {
   "/app": {
     params: {};
   };
+  "/app/webhooks/app/scopes_update": {
+    params: {};
+  };
+  "/app/webhooks/app/uninstalled": {
+    params: {};
+  };
+  "/app/webhooks/orders/create": {
+    params: {};
+  };
   "/app/additional": {
     params: {};
   };
@@ -79,7 +88,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/activate-code" | "/api/onboarding" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/additional" | "/app/onboarding" | "/app/html";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/activate-code" | "/api/onboarding" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/webhooks/app/scopes_update" | "/app/webhooks/app/uninstalled" | "/app/webhooks/orders/create" | "/app/additional" | "/app/onboarding" | "/app/html";
   };
   "routes/webhooks.app.scopes_update.tsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -143,7 +152,19 @@ type RouteFiles = {
   };
   "routes/app.tsx": {
     id: "routes/app";
-    page: "/app" | "/app/additional" | "/app/onboarding" | "/app/html";
+    page: "/app" | "/app/webhooks/app/scopes_update" | "/app/webhooks/app/uninstalled" | "/app/webhooks/orders/create" | "/app/additional" | "/app/onboarding" | "/app/html";
+  };
+  "routes/app.webhooks.app.scopes_update.tsx": {
+    id: "routes/app.webhooks.app.scopes_update";
+    page: "/app/webhooks/app/scopes_update";
+  };
+  "routes/app.webhooks.app.uninstalled.tsx": {
+    id: "routes/app.webhooks.app.uninstalled";
+    page: "/app/webhooks/app/uninstalled";
+  };
+  "routes/app.webhooks.orders.create.tsx": {
+    id: "routes/app.webhooks.orders.create";
+    page: "/app/webhooks/orders/create";
   };
   "routes/app.additional.tsx": {
     id: "routes/app.additional";
@@ -181,6 +202,9 @@ type RouteModules = {
   "routes/_index": typeof import("./app/routes/_index/route.tsx");
   "routes/auth.$": typeof import("./app/routes/auth.$.tsx");
   "routes/app": typeof import("./app/routes/app.tsx");
+  "routes/app.webhooks.app.scopes_update": typeof import("./app/routes/app.webhooks.app.scopes_update.tsx");
+  "routes/app.webhooks.app.uninstalled": typeof import("./app/routes/app.webhooks.app.uninstalled.tsx");
+  "routes/app.webhooks.orders.create": typeof import("./app/routes/app.webhooks.orders.create.tsx");
   "routes/app.additional": typeof import("./app/routes/app.additional.tsx");
   "routes/app.onboarding": typeof import("./app/routes/app.onboarding.tsx");
   "routes/app._index": typeof import("./app/routes/app._index.tsx");
