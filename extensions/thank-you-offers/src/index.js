@@ -154,17 +154,9 @@ function OfferCard({
 
     if (!discountCode) return;
 
-    console.log('[copy] shopify.clipboard:', typeof shopify !== 'undefined' ? String(shopify?.clipboard) : 'shopify undefined');
-
     try {
       if (typeof shopify !== 'undefined' && typeof shopify?.clipboard?.writeText === 'function') {
         await shopify.clipboard.writeText(discountCode);
-        setCopiedState(true);
-        setTimeout(() => setCopiedState(false), 2000);
-      } else {
-        // Clipboard API not available in this extension context — mark as copied
-        // anyway so the user sees the feedback; the code is visible on the button.
-        console.warn('[copy] shopify.clipboard.writeText not available');
         setCopiedState(true);
         setTimeout(() => setCopiedState(false), 2000);
       }
@@ -242,27 +234,31 @@ function OfferCard({
           { gap: 'small' },
           h(
             's-stack',
-            { gap: 'none', inlineAlign: 'center' },
+            { gap: 'extraSmall', inlineAlign: 'center' },
+            h('s-text', { size: 'small', appearance: 'subdued' }, 'Your discount code:'),
             h(
               's-button',
               {
                 kind: 'secondary',
                 onClick: handleCopyCode,
-                title: 'Click to copy discount code',
+                title: 'Tap to copy discount code',
                 size: 'small',
               },
               copiedState ? 'Copied!' : discountCode
-            )
+            ),
+            !copiedState
+              ? h('s-text', { size: 'small', appearance: 'subdued' }, 'Tap to copy')
+              : null
           ),
           cardState === 'revealed'
             ? h(
                 's-button',
                 {
-                  kind: 'secondary',
+                  kind: 'primary',
                   href: redirectUrl,
                   inlineSize: 'fill',
                 },
-                'Shop now'
+                'Shop now — code applies automatically'
               )
             : null,
           cardState === 'revealed' && !shopifySynced
