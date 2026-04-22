@@ -93,7 +93,6 @@ function OfferCard({
   const [cardState, setCardState] = useState('initial');
   const [discountCode, setDiscountCode] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [copiedState, setCopiedState] = useState(false);
   const [shopifySynced, setShopifySynced] = useState(true);
   const [logoReady, setLogoReady] = useState(false);
 
@@ -147,23 +146,6 @@ function OfferCard({
     }
   };
 
-  const handleCopyCode = async (e) => {
-    if (e?.preventDefault) e.preventDefault();
-    if (e?.stopPropagation) e.stopPropagation();
-    if (e?.stopImmediatePropagation) e.stopImmediatePropagation();
-
-    if (!discountCode) return;
-
-    try {
-      if (typeof shopify !== 'undefined' && typeof shopify?.clipboard?.writeText === 'function') {
-        await shopify.clipboard.writeText(discountCode);
-        setCopiedState(true);
-        setTimeout(() => setCopiedState(false), 2000);
-      }
-    } catch (err) {
-      console.warn('[copy] failed', err);
-    }
-  };
 
   // /discount/{code} applies the code to the session; ?redirect=/collections/all
   // sends the customer straight to the product catalogue with it pre-applied.
@@ -233,34 +215,29 @@ function OfferCard({
           's-stack',
           { gap: 'small' },
           h(
-            's-stack',
-            { gap: 'extraSmall', inlineAlign: 'center' },
-            h('s-text', { size: 'small', appearance: 'subdued' }, 'Your discount code:'),
+            's-box',
+            {
+              padding: 'small',
+              border: 'base',
+              borderRadius: 'base',
+              background: 'subdued',
+            },
             h(
-              's-button',
-              {
-                kind: 'secondary',
-                onClick: handleCopyCode,
-                title: 'Tap to copy discount code',
-                size: 'small',
-              },
-              copiedState ? 'Copied!' : discountCode
-            ),
-            h(
-              's-text',
-              { size: 'small', appearance: 'subdued' },
-              copiedState ? 'Copied to clipboard!' : 'Tap code to copy — or use Shop now below'
+              's-stack',
+              { gap: 'none', inlineAlign: 'center' },
+              h('s-text', { size: 'small', appearance: 'subdued' }, 'Your discount code'),
+              h('s-text', { emphasis: true, size: 'large' }, discountCode)
             )
           ),
           cardState === 'revealed'
             ? h(
                 's-button',
                 {
-                  kind: 'secondary',
+                  kind: 'primary',
                   href: redirectUrl,
                   inlineSize: 'fill',
                 },
-                'Shop now'
+                'Shop now — code applied at checkout'
               )
             : null,
           cardState === 'revealed' && !shopifySynced
