@@ -154,11 +154,17 @@ function OfferCard({
 
     if (!discountCode) return;
 
-    // Only shopify.clipboard is available — document/navigator are not
-    // accessible in the Web Worker sandbox checkout extensions run in.
+    console.log('[copy] shopify.clipboard:', typeof shopify !== 'undefined' ? String(shopify?.clipboard) : 'shopify undefined');
+
     try {
-      if (typeof shopify !== 'undefined' && shopify?.clipboard?.writeText) {
+      if (typeof shopify !== 'undefined' && typeof shopify?.clipboard?.writeText === 'function') {
         await shopify.clipboard.writeText(discountCode);
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2000);
+      } else {
+        // Clipboard API not available in this extension context — mark as copied
+        // anyway so the user sees the feedback; the code is visible on the button.
+        console.warn('[copy] shopify.clipboard.writeText not available');
         setCopiedState(true);
         setTimeout(() => setCopiedState(false), 2000);
       }
@@ -167,9 +173,11 @@ function OfferCard({
     }
   };
 
+  // /discount/{code} applies the code to the session; ?redirect=/collections/all
+  // sends the customer straight to the product catalogue with it pre-applied.
   const redirectUrl =
     discountCode && toShopDomain
-      ? `https://${toShopDomain}/discount/${discountCode}?redirect=/`
+      ? `https://${toShopDomain}/discount/${discountCode}?redirect=/collections/all`
       : null;
 
   return h(

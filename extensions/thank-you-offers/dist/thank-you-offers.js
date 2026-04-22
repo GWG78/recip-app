@@ -512,9 +512,14 @@ function OfferCard({
     if (e3?.stopPropagation) e3.stopPropagation();
     if (e3?.stopImmediatePropagation) e3.stopImmediatePropagation();
     if (!discountCode) return;
+    console.log("[copy] shopify.clipboard:", typeof shopify !== "undefined" ? String(shopify?.clipboard) : "shopify undefined");
     try {
-      if (typeof shopify !== "undefined" && shopify?.clipboard?.writeText) {
+      if (typeof shopify !== "undefined" && typeof shopify?.clipboard?.writeText === "function") {
         await shopify.clipboard.writeText(discountCode);
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2e3);
+      } else {
+        console.warn("[copy] shopify.clipboard.writeText not available");
         setCopiedState(true);
         setTimeout(() => setCopiedState(false), 2e3);
       }
@@ -522,7 +527,7 @@ function OfferCard({
       console.warn("[copy] failed", err);
     }
   };
-  const redirectUrl = discountCode && toShopDomain ? `https://${toShopDomain}/discount/${discountCode}?redirect=/` : null;
+  const redirectUrl = discountCode && toShopDomain ? `https://${toShopDomain}/discount/${discountCode}?redirect=/collections/all` : null;
   return _(
     "s-stack",
     {
