@@ -162,7 +162,7 @@ function OfferCard({
         "s-stack",
         { gap: "none" },
         h("s-text", { emphasis: true, size: "large" }, brand),
-        h("s-text", { size: "small", appearance: "subdued" }, h("em", null, offer))
+        h("s-text", { size: "small", appearance: "subdued" }, offer)
       )
     ),
     h("s-text", { appearance: "subdued" }, description),
