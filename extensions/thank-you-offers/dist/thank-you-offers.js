@@ -475,10 +475,10 @@ function OfferCard({
   y2(() => {
     setLogoReady(false);
     if (!logoUrl) return;
-    const img = new Image();
-    img.onload = () => setLogoReady(true);
-    img.onerror = () => setLogoReady(false);
-    img.src = logoUrl;
+    fetch(logoUrl, { method: "HEAD" }).then((res) => {
+      if (res.ok) setLogoReady(true);
+    }).catch(() => {
+    });
   }, [logoUrl]);
   const handleFirstCtaClick = async (e3) => {
     if (e3?.preventDefault) e3.preventDefault();
@@ -515,39 +515,14 @@ function OfferCard({
     try {
       if (typeof shopify !== "undefined" && shopify?.clipboard?.writeText) {
         await shopify.clipboard.writeText(discountCode);
-      } else if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(discountCode);
-      } else {
-        const el = document.createElement("textarea");
-        el.value = discountCode;
-        el.style.position = "fixed";
-        el.style.opacity = "0";
-        document.body.appendChild(el);
-        el.focus();
-        el.select();
-        document.execCommand("copy");
-        document.body.removeChild(el);
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2e3);
       }
-      setCopiedState(true);
-      setTimeout(() => setCopiedState(false), 2e3);
     } catch (err) {
       console.warn("[copy] failed", err);
     }
   };
-  const handleShopNow = (e3) => {
-    if (e3?.preventDefault) e3.preventDefault();
-    if (!discountCode || !toShopDomain) return;
-    const url = `https://${toShopDomain}/discount/${discountCode}?redirect=/`;
-    try {
-      if (globalThis.top && globalThis.top !== globalThis.self) {
-        globalThis.top.location.href = url;
-      } else {
-        globalThis.location.href = url;
-      }
-    } catch (_err) {
-      globalThis.location.href = url;
-    }
-  };
+  const redirectUrl = discountCode && toShopDomain ? `https://${toShopDomain}/discount/${discountCode}?redirect=/` : null;
   return _(
     "s-stack",
     {
@@ -620,7 +595,7 @@ function OfferCard({
         "s-button",
         {
           kind: "secondary",
-          onClick: handleShopNow,
+          href: redirectUrl,
           inlineSize: "fill"
         },
         "Shop now"

@@ -103,15 +103,15 @@ function OfferCard({
     }
   }, [offerId, orderId, fromShopId, toShopId]);
 
-  // Preload logo via a native Image object — reliable load/error detection
-  // before we attempt to render it inside the Seneca s-image component.
+  // Use fetch (available via network_access capability) to verify the logo
+  // URL is reachable. new Image() and document are not available in the
+  // Web Worker sandbox that Shopify checkout extensions run inside.
   useEffect(() => {
     setLogoReady(false);
     if (!logoUrl) return;
-    const img = new Image();
-    img.onload = () => setLogoReady(true);
-    img.onerror = () => setLogoReady(false);
-    img.src = logoUrl;
+    fetch(logoUrl, { method: 'HEAD' })
+      .then((res) => { if (res.ok) setLogoReady(true); })
+      .catch(() => { /* leave logoReady false, show initial letter */ });
   }, [logoUrl]);
 
   const handleFirstCtaClick = async (e) => {
@@ -154,48 +154,23 @@ function OfferCard({
 
     if (!discountCode) return;
 
+    // Only shopify.clipboard is available — document/navigator are not
+    // accessible in the Web Worker sandbox checkout extensions run in.
     try {
       if (typeof shopify !== 'undefined' && shopify?.clipboard?.writeText) {
         await shopify.clipboard.writeText(discountCode);
-      } else if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(discountCode);
-      } else {
-        // execCommand fallback for restricted iframe contexts
-        const el = document.createElement('textarea');
-        el.value = discountCode;
-        el.style.position = 'fixed';
-        el.style.opacity = '0';
-        document.body.appendChild(el);
-        el.focus();
-        el.select();
-        document.execCommand('copy');
-        document.body.removeChild(el);
+        setCopiedState(true);
+        setTimeout(() => setCopiedState(false), 2000);
       }
-      setCopiedState(true);
-      setTimeout(() => setCopiedState(false), 2000);
     } catch (err) {
       console.warn('[copy] failed', err);
     }
   };
 
-  const handleShopNow = (e) => {
-    if (e?.preventDefault) e.preventDefault();
-    if (!discountCode || !toShopDomain) return;
-
-    const url = `https://${toShopDomain}/discount/${discountCode}?redirect=/`;
-
-    try {
-      // Try to open in the top-level frame so the user leaves the thank-you page
-      if (globalThis.top && globalThis.top !== globalThis.self) {
-        globalThis.top.location.href = url;
-      } else {
-        globalThis.location.href = url;
-      }
-    } catch (_err) {
-      // Cross-origin restriction: fall back to same frame
-      globalThis.location.href = url;
-    }
-  };
+  const redirectUrl =
+    discountCode && toShopDomain
+      ? `https://${toShopDomain}/discount/${discountCode}?redirect=/`
+      : null;
 
   return h(
     's-stack',
@@ -276,7 +251,7 @@ function OfferCard({
                 's-button',
                 {
                   kind: 'secondary',
-                  onClick: handleShopNow,
+                  href: redirectUrl,
                   inlineSize: 'fill',
                 },
                 'Shop now'
