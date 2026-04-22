@@ -246,19 +246,21 @@ function OfferCard({
               },
               copiedState ? 'Copied!' : discountCode
             ),
-            !copiedState
-              ? h('s-text', { size: 'small', appearance: 'subdued' }, 'Tap to copy')
-              : null
+            h(
+              's-text',
+              { size: 'small', appearance: 'subdued' },
+              copiedState ? 'Copied to clipboard!' : 'Tap code to copy — or use Shop now below'
+            )
           ),
           cardState === 'revealed'
             ? h(
                 's-button',
                 {
-                  kind: 'primary',
+                  kind: 'secondary',
                   href: redirectUrl,
                   inlineSize: 'fill',
                 },
-                'Shop now — code applies automatically'
+                'Shop now'
               )
             : null,
           cardState === 'revealed' && !shopifySynced
