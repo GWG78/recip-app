@@ -2,7 +2,7 @@
 
 client_id = "408976a7af61fa183b5f19a4c6f11a86"
 name = "Recip"
-application_url = "https://recip-app-5alg.onrender.com"
+application_url = "https://recip-app-5alg.onrender.com/app"
 embedded = true
 
 [build]
