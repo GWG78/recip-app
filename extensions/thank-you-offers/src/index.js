@@ -210,6 +210,7 @@ function OfferCard({
       ? h(
           's-stack',
           { gap: 'small' },
+          h('s-text', { size: 'small', appearance: 'subdued' }, 'Your discount code'),
           h(
             's-box',
             {
@@ -221,26 +222,23 @@ function OfferCard({
             h(
               's-stack',
               { gap: 'none', inlineAlign: 'center' },
-              h('s-text', { size: 'small', appearance: 'subdued' }, 'Your discount code'),
               h('s-text', { emphasis: true, size: 'large' }, discountCode)
             )
           ),
           cardState === 'revealed'
             ? h(
-                's-button',
-                {
-                  kind: 'primary',
-                  href: redirectUrl,
-                  inlineSize: 'fill',
-                },
-                'Shop now — code applied at checkout'
-              )
-            : null,
-          cardState === 'revealed' && !shopifySynced
-            ? h(
-                's-text',
-                { size: 'small', appearance: 'warning' },
-                'Code is generated, but not synced to Shopify yet. It may not redeem until shop auth is fixed.'
+                's-stack',
+                { gap: 'extraSmall' },
+                h(
+                  's-button',
+                  {
+                    kind: 'primary',
+                    href: redirectUrl,
+                    inlineSize: 'fill',
+                  },
+                  'Shop now'
+                ),
+                h('s-text', { size: 'small', appearance: 'subdued', inlineAlignment: 'center' }, 'Code applied automatically at checkout')
               )
             : null
         )
