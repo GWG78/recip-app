@@ -129,8 +129,8 @@ function OfferCard({
       inlineSize: "fill"
     },
     h(
-      "s-grid",
-      { gap: "base", gridTemplateColumns: "auto 1fr", alignItems: "center" },
+      "s-stack",
+      { gap: "base", direction: "inline", alignItems: "center" },
       h(
         "s-box",
         {
@@ -161,7 +161,7 @@ function OfferCard({
       h(
         "s-stack",
         { gap: "none" },
-        h("s-text", { emphasis: true, size: "extraLarge" }, brand),
+        h("s-text", { emphasis: true, size: "large" }, brand),
         h("s-text", { size: "small", appearance: "subdued" }, h("em", null, offer))
       )
     ),
