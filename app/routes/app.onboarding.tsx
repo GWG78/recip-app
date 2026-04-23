@@ -117,19 +117,10 @@ function OfferPreviewCard({
       {/* Description */}
       <p style={{ margin: 0, fontSize: 14, color: "#6B7280", lineHeight: 1.5 }}>{displayDescription}</p>
 
-      {/* Discount code */}
-      <span style={{ fontSize: 13, color: "#6B7280" }}>Your discount code</span>
-      <div style={{ padding: "10px 12px", border: "1px solid #E5E7EB", borderRadius: 8, background: "#F3F4F6", textAlign: "center" }}>
-        <span style={{ fontSize: 14, color: "#111827", letterSpacing: "0.05em" }}>{placeholderCode}</span>
-      </div>
-
-      {/* Shop now + hint */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <Button primary disabled fullWidth>
-          Shop now
-        </Button>
-        <span style={{ fontSize: 12, color: "#6B7280" }}>Code applied automatically at checkout</span>
-      </div>
+      {/* CTA — initial state */}
+      <Button primary disabled fullWidth>
+        Unlock offer
+      </Button>
     </div>
   );
 }
