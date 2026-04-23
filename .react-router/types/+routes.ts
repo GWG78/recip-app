@@ -29,6 +29,9 @@ type Pages = {
   "/api/events/impression": {
     params: {};
   };
+  "/api/admin/reset-pool": {
+    params: {};
+  };
   "/api/friendly-brands": {
     params: {};
   };
@@ -88,7 +91,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/activate-code" | "/api/onboarding" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/webhooks/app/scopes_update" | "/app/webhooks/app/uninstalled" | "/app/webhooks/orders/create" | "/app/additional" | "/app/onboarding" | "/app/html";
+    page: "/" | "/webhooks/app/scopes_update" | "/webhooks/app/uninstalled" | "/webhooks/app_uninstalled" | "/webhooks/orders/create" | "/api/events/impression" | "/api/admin/reset-pool" | "/api/friendly-brands" | "/api/friendly-brands/:id" | "/api/activate-code" | "/api/onboarding" | "/api/settings" | "/api/offers" | "/auth/login" | "/r/:offerId" | "/auth/*" | "/app" | "/app/webhooks/app/scopes_update" | "/app/webhooks/app/uninstalled" | "/app/webhooks/orders/create" | "/app/additional" | "/app/onboarding" | "/app/html";
   };
   "routes/webhooks.app.scopes_update.tsx": {
     id: "routes/webhooks.app.scopes_update";
@@ -109,6 +112,10 @@ type RouteFiles = {
   "routes/api.events.impression.ts": {
     id: "routes/api.events.impression";
     page: "/api/events/impression";
+  };
+  "routes/api.admin.reset-pool.ts": {
+    id: "routes/api.admin.reset-pool";
+    page: "/api/admin/reset-pool";
   };
   "routes/api.friendly-brands.tsx": {
     id: "routes/api.friendly-brands";
@@ -191,6 +198,7 @@ type RouteModules = {
   "routes/webhooks.app_uninstalled": typeof import("./app/routes/webhooks.app_uninstalled.tsx");
   "routes/webhooks.orders.create": typeof import("./app/routes/webhooks.orders.create.tsx");
   "routes/api.events.impression": typeof import("./app/routes/api.events.impression.ts");
+  "routes/api.admin.reset-pool": typeof import("./app/routes/api.admin.reset-pool.ts");
   "routes/api.friendly-brands": typeof import("./app/routes/api.friendly-brands.tsx");
   "routes/api.friendly-brands.$id": typeof import("./app/routes/api.friendly-brands.$id.tsx");
   "routes/api.activate-code": typeof import("./app/routes/api.activate-code.ts");
