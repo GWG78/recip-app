@@ -161,7 +161,11 @@ function OfferCard({
       h(
         "s-box",
         { padding: "small", border: "base", borderRadius: "base", background: "subdued" },
-        h("s-text", null, discountCode)
+        h(
+          "s-stack",
+          { gap: "none", alignItems: "center" },
+          h("s-text", null, discountCode)
+        )
       ),
       cardState === "revealed" ? h(
         "s-stack",

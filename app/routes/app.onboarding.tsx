@@ -94,41 +94,42 @@ function OfferPreviewCard({
 }) {
   const displayName = brandName.trim() || "Your brand";
   const displayDescription = description.trim() || "Your offer preview will appear here.";
+  const placeholderCode = "RECIP123456";
 
   const getOfferText = () => {
     if (!offerValue) return "Your offer will appear here";
-    const symbol = offerType === "percentage" ? "%" : "$";
-    const offerPart = `Get ${offerValue}${symbol} off`;
-    return newCustomersOnly ? `${offerPart} your first order` : offerPart;
+    const num = offerValue;
+    const base = offerType === "percentage" ? `${num}% off your next order` : `$${num} off your next order`;
+    return newCustomersOnly ? base.replace("next", "first") : base;
   };
 
   return (
-    <div
-      style={{
-        border: "1px solid #E5E7EB",
-        borderRadius: 8,
-        padding: 16,
-        background: "#FFFFFF",
-      }}
-    >
-      {/* Header: logo + brand name + offer — mirrors s-stack direction:inline */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+    <div style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: 16, background: "#FFFFFF", display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Header: logo left, brand name + offer right */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <LogoPreview logoUrl={logoUrl} brandName={displayName} />
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>{displayName}</span>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827", lineHeight: 1.3 }}>{displayName}</h3>
           <span style={{ fontSize: 13, color: "#6B7280" }}>{getOfferText()}</span>
         </div>
       </div>
 
-      {/* Description — mirrors s-text appearance:subdued */}
-      <p style={{ margin: "0 0 16px", fontSize: 14, color: "#6B7280", lineHeight: 1.5 }}>
-        {displayDescription}
-      </p>
+      {/* Description */}
+      <p style={{ margin: 0, fontSize: 14, color: "#6B7280", lineHeight: 1.5 }}>{displayDescription}</p>
 
-      {/* CTA — mirrors s-button kind:primary inlineSize:fill */}
-      <Button disabled fullWidth>
-        Unlock offer
-      </Button>
+      {/* Discount code */}
+      <span style={{ fontSize: 13, color: "#6B7280" }}>Your discount code</span>
+      <div style={{ padding: "10px 12px", border: "1px solid #E5E7EB", borderRadius: 8, background: "#F3F4F6", textAlign: "center" }}>
+        <span style={{ fontSize: 14, color: "#111827", letterSpacing: "0.05em" }}>{placeholderCode}</span>
+      </div>
+
+      {/* Shop now + hint */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Button primary disabled fullWidth>
+          Shop now
+        </Button>
+        <span style={{ fontSize: 12, color: "#6B7280" }}>Code applied automatically at checkout</span>
+      </div>
     </div>
   );
 }
