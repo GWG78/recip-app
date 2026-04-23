@@ -93,7 +93,7 @@ function OfferCard({
   const [cardState, setCardState] = useState('initial');
   const [discountCode, setDiscountCode] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [copiedState, setCopiedState] = useState(false);
+
   const [logoReady, setLogoReady] = useState(false);
 
   useEffect(() => {
@@ -201,19 +201,12 @@ function OfferCard({
           { gap: 'small' },
           h('s-text', { color: 'subdued' }, 'Your discount code'),
           h(
-            's-clipboard-item',
-            {
-              text: discountCode,
-              onCopy: () => { setCopiedState(true); setTimeout(() => setCopiedState(false), 2000); },
-            },
+            's-box',
+            { padding: 'small', border: 'base', borderRadius: 'base', background: 'subdued' },
             h(
-              's-box',
-              { padding: 'small', border: 'base', borderRadius: 'base', background: 'subdued' },
-              h(
-                's-stack',
-                { gap: 'none', alignItems: 'center' },
-                h('s-text', { type: 'strong' }, copiedState ? 'Copied!' : discountCode)
-              )
+              's-stack',
+              { gap: 'none', alignItems: 'center' },
+              h('s-text', { type: 'strong' }, discountCode)
             )
           ),
           cardState === 'revealed'
