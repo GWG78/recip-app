@@ -201,18 +201,18 @@ function OfferCard({
           { gap: 'small' },
           h('s-text', { color: 'subdued' }, 'Your discount code'),
           h(
-            's-box',
-            { padding: 'small', border: 'base', borderRadius: 'base', background: 'subdued' },
+            's-clipboard-item',
+            {
+              text: discountCode,
+              onCopy: () => { setCopiedState(true); setTimeout(() => setCopiedState(false), 2000); },
+            },
             h(
-              's-stack',
-              { gap: 'none', justifyContent: 'center', alignItems: 'center' },
+              's-box',
+              { padding: 'small', border: 'base', borderRadius: 'base', background: 'subdued' },
               h(
-                's-clipboard-item',
-                {
-                  text: discountCode,
-                  onCopy: () => { setCopiedState(true); setTimeout(() => setCopiedState(false), 2000); },
-                },
-                h('s-button', { kind: 'secondary', size: 'small' }, copiedState ? 'Copied!' : discountCode)
+                's-stack',
+                { gap: 'none', alignItems: 'center' },
+                h('s-text', { type: 'strong' }, copiedState ? 'Copied!' : discountCode)
               )
             )
           ),
