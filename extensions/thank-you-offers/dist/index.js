@@ -76,7 +76,7 @@ function OfferCard({
   const [cardState, setCardState] = useState("initial");
   const [discountCode, setDiscountCode] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [shopifySynced, setShopifySynced] = useState(true);
+  const [copiedState, setCopiedState] = useState(false);
   const [logoReady, setLogoReady] = useState(false);
   useEffect(() => {
     if (orderId && fromShopId && toShopId) {
@@ -111,7 +111,6 @@ function OfferCard({
         throw new Error(data?.error || "Failed to activate code");
       }
       setDiscountCode(data.code);
-      setShopifySynced(data?.shopifySynced !== false);
       setCardState("revealed");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "An error occurred");
@@ -121,16 +120,10 @@ function OfferCard({
   const redirectUrl = discountCode && toShopDomain ? `https://${toShopDomain}/discount/${discountCode}?redirect=/collections/all` : null;
   return h(
     "s-stack",
-    {
-      gap: "base",
-      padding: "base",
-      border: "base",
-      borderRadius: "base",
-      inlineSize: "fill"
-    },
+    { gap: "base", padding: "base", border: "base", borderRadius: "base", inlineSize: "fill" },
     h(
-      "s-stack",
-      { gap: "base", direction: "inline", alignItems: "center" },
+      "s-grid",
+      { gridTemplateColumns: "64px 1fr", gap: "base", alignItems: "center" },
       h(
         "s-box",
         {
@@ -150,69 +143,50 @@ function OfferCard({
           objectFit: "cover"
         }) : h(
           "s-box",
-          {
-            padding: "small",
-            inlineSize: "fill",
-            blockSize: "fill"
-          },
-          h("s-text", { emphasis: true }, (brand || "?").slice(0, 1).toUpperCase())
+          { padding: "small", inlineSize: "fill", blockSize: "fill" },
+          h("s-text", { type: "strong" }, (brand || "?").slice(0, 1).toUpperCase())
         )
       ),
       h(
         "s-stack",
         { gap: "none" },
-        h("s-text", { emphasis: true, size: "large" }, brand),
-        h("s-text", { size: "small", appearance: "subdued" }, offer)
+        h("s-heading", null, brand),
+        h("s-text", { color: "subdued" }, offer)
       )
     ),
-    h("s-text", { appearance: "subdued" }, description),
+    h("s-text", { color: "subdued" }, description),
     cardState !== "initial" && cardState !== "revealing" ? h(
       "s-stack",
       { gap: "small" },
-      h("s-text", { size: "small", appearance: "subdued" }, "Your discount code"),
+      h("s-text", { color: "subdued" }, "Your discount code"),
       h(
         "s-box",
-        {
-          padding: "small",
-          border: "base",
-          borderRadius: "base",
-          background: "subdued"
-        },
+        { padding: "small", border: "base", borderRadius: "base", background: "subdued" },
         h(
           "s-stack",
-          { gap: "none", inlineAlign: "center" },
-          h("s-text", { emphasis: true, size: "large" }, discountCode)
+          { gap: "none", alignItems: "center" },
+          h(
+            "s-clipboard-item",
+            {
+              text: discountCode,
+              onCopy: () => {
+                setCopiedState(true);
+                setTimeout(() => setCopiedState(false), 2e3);
+              }
+            },
+            h("s-button", { kind: "secondary", size: "small" }, copiedState ? "Copied!" : discountCode)
+          )
         )
       ),
       cardState === "revealed" ? h(
         "s-stack",
         { gap: "extraSmall" },
-        h(
-          "s-button",
-          {
-            kind: "primary",
-            href: redirectUrl,
-            inlineSize: "fill"
-          },
-          "Shop now"
-        ),
-        h("s-text", { size: "small", appearance: "subdued", inlineAlignment: "center" }, "Code applied automatically at checkout")
+        h("s-button", { kind: "primary", href: redirectUrl, inlineSize: "fill" }, "Shop now"),
+        h("s-text", { color: "subdued" }, "Code applied automatically at checkout")
       ) : null
     ) : null,
-    cardState === "revealing" ? h(
-      "s-box",
-      { padding: "small" },
-      h(
-        "s-text",
-        { size: "small", appearance: "subdued" },
-        "Generating your discount code..."
-      )
-    ) : null,
-    cardState === "error" ? h(
-      "s-box",
-      { padding: "small" },
-      h("s-text", { size: "small", appearance: "warning" }, `Error: ${errorMessage || "Failed to load code"}`)
-    ) : null,
+    cardState === "revealing" ? h("s-box", { padding: "small" }, h("s-text", { color: "subdued" }, "Generating your discount code...")) : null,
+    cardState === "error" ? h("s-box", { padding: "small" }, h("s-text", { tone: "warning" }, `Error: ${errorMessage || "Failed to load code"}`)) : null,
     cardState === "initial" || cardState === "error" ? h(
       "s-button",
       {
