@@ -188,8 +188,8 @@ function OfferCard({
       h(
         's-stack',
         { gap: 'none' },
-        h('s-heading', null, brand),
-        h('s-text', { color: 'subdued' }, offer)
+        h('s-heading', { style: 'font-weight: 700; font-size: 1.2em;' }, brand),
+        h('s-text', { color: 'subdued', style: 'font-style: italic;' }, offer)
       )
     ),
 
@@ -205,7 +205,7 @@ function OfferCard({
             { padding: 'small', border: 'base', borderRadius: 'base', background: 'subdued' },
             h(
               's-stack',
-              { gap: 'none', alignItems: 'center' },
+              { gap: 'none', justifyContent: 'center', alignItems: 'center' },
               h(
                 's-clipboard-item',
                 {
