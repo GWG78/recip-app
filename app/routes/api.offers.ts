@@ -9,11 +9,13 @@ function normalizeDomain(value: string) {
     .replace(/\/$/, "");
 }
 
-function buildOfferText(discountType: "PERCENTAGE" | "FIXED", discountValue: number) {
-  if (discountType === "FIXED") {
-    return `Save ${discountValue.toFixed(2)} on your next order`;
-  }
-  return `${discountValue}% off your next order`;
+function buildOfferText(discountType: "PERCENTAGE" | "FIXED", discountValue: number, newCustomersOnly: boolean) {
+  const amount = discountType === "FIXED"
+    ? `£${discountValue % 1 === 0 ? discountValue : discountValue.toFixed(2)}`
+    : `${discountValue}%`;
+  return newCustomersOnly
+    ? `Get ${amount} off your first order`
+    : `Get ${amount} off`;
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -76,6 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               select: {
                 discountType: true,
                 discountValue: true,
+                newCustomersOnly: true,
                 brandName: true,
                 brandDescription: true,
                 logoUrl: true,
@@ -103,6 +106,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               select: {
                 discountType: true,
                 discountValue: true,
+                newCustomersOnly: true,
                 brandName: true,
                 brandDescription: true,
                 logoUrl: true,
@@ -123,6 +127,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const offers = destinationShops.map((shop) => {
     const discountType = shop.settings?.discountType ?? "PERCENTAGE";
     const discountValue = Number(shop.settings?.discountValue ?? 10);
+    const newCustomersOnly = shop.settings?.newCustomersOnly ?? false;
 
     return {
       offerId: `offer-${shop.id}`,
@@ -130,7 +135,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       toShopDomain: shop.shopDomain,
       brand: shop.settings?.brandName || shop.shopDomain.replace(".myshopify.com", ""),
       description: shop.settings?.brandDescription || "Partner offer",
-      offer: buildOfferText(discountType, discountValue),
+      offer: buildOfferText(discountType, discountValue, newCustomersOnly),
       discountType,
       discountValue,
       logoUrl: shop.settings?.logoUrl || undefined,

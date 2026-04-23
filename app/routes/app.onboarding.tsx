@@ -98,9 +98,10 @@ function OfferPreviewCard({
 
   const getOfferText = () => {
     if (!offerValue) return "Your offer will appear here";
-    const num = offerValue;
-    const base = offerType === "percentage" ? `${num}% off your next order` : `$${num} off your next order`;
-    return newCustomersOnly ? base.replace("next", "first") : base;
+    const amount = offerType === "percentage" ? `${offerValue}%` : `£${offerValue}`;
+    return newCustomersOnly
+      ? `Get ${amount} off your first order`
+      : `Get ${amount} off`;
   };
 
   return (
@@ -404,7 +405,7 @@ export default function OnboardingPage() {
                           title="Type"
                           choices={[
                             { label: "Percentage (%)", value: "percentage" },
-                            { label: "Fixed ($)", value: "fixed" },
+                            { label: "Fixed (£)", value: "fixed" },
                           ]}
                           selected={[offerType]}
                           onChange={(selected) => setOfferType(selected[0] as "percentage" | "fixed")}
