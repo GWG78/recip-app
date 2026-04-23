@@ -150,8 +150,8 @@ function OfferCard({
       h(
         "s-stack",
         { gap: "none" },
-        h("s-heading", { style: "font-weight: 700; font-size: 1.2em;" }, brand),
-        h("s-text", { color: "subdued", style: "font-style: italic;" }, offer)
+        h("s-heading", null, brand),
+        h("s-text", { color: "subdued" }, offer)
       )
     ),
     h("s-text", { color: "subdued" }, description),
