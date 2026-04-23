@@ -203,16 +203,12 @@ function OfferCard({
           h(
             's-box',
             { padding: 'small', border: 'base', borderRadius: 'base', background: 'subdued' },
-            h(
-              's-stack',
-              { gap: 'none', alignItems: 'center' },
-              h('s-text', { type: 'strong' }, discountCode)
-            )
+            h('s-text', null, discountCode)
           ),
           cardState === 'revealed'
             ? h(
                 's-stack',
-                { gap: 'extraSmall' },
+                { gap: 'small' },
                 h('s-button', { kind: 'primary', href: redirectUrl, inlineSize: 'fill' }, 'Shop now'),
                 h('s-text', { color: 'subdued' }, 'Code applied automatically at checkout')
               )
