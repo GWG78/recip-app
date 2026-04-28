@@ -177,7 +177,7 @@ function OfferCard({
               alt: `${brand} logo`,
               inlineSize: 'fill',
               aspectRatio: '1/1',
-              objectFit: 'cover',
+              objectFit: 'contain',
             })
           : h(
               's-box',

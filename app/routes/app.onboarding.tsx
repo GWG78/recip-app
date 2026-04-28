@@ -68,7 +68,7 @@ function LogoPreview({ logoUrl, brandName }: { logoUrl?: string; brandName: stri
         <img
           src={logoUrl}
           alt={brandName || "Brand logo"}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
         />
       ) : (
         <span style={{ fontSize: 22, fontWeight: 700, color: "#1F2937" }}>{initial}</span>
