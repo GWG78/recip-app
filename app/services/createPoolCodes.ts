@@ -107,7 +107,7 @@ export async function resolveAdminClient(
   };
 }
 
-async function createShopifyDiscountCode(args: {
+export async function createShopifyDiscountCode(args: {
   adminClient: AdminGraphqlClient;
   code: string;
   discountKind: DiscountKind;

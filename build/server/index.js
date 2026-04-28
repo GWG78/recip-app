@@ -963,9 +963,29 @@ async function activateDiscountFromPool({
   if (adminClient) {
     try {
       if (!isShopifyDiscountNodeGid(activatedCode.shopifyDiscountGid)) {
-        console.log(
-          `[activation] skipping Shopify update for ${activatedCode.code} (non-Shopify placeholder gid: ${activatedCode.shopifyDiscountGid})`
-        );
+        const settings = await prisma.shopSettings.findUnique({
+          where: { shopId: toShopId },
+          select: { discountType: true, discountValue: true }
+        });
+        const discountKind = (settings == null ? void 0 : settings.discountType) ?? "PERCENTAGE";
+        const rawValue = (settings == null ? void 0 : settings.discountValue) ? Number(settings.discountValue) : 10;
+        const discountValue = discountKind === "PERCENTAGE" && rawValue <= 1 ? rawValue * 100 : rawValue;
+        const shopifyResult = await createShopifyDiscountCode({
+          adminClient,
+          code: activatedCode.code,
+          discountKind,
+          discountValue,
+          expiryHours
+        });
+        await prisma.discountCode.update({
+          where: { id: activatedCode.id },
+          data: {
+            shopifyDiscountGid: shopifyResult.gid,
+            startsAt: shopifyResult.startsAt,
+            endsAt: shopifyResult.endsAt
+          }
+        });
+        console.log(`[activation] created placeholder ${activatedCode.code} in Shopify (gid: ${shopifyResult.gid})`);
       } else {
         await updateShopifyDiscount(
           adminClient,

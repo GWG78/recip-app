@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "../db.server";
 import { trackEventTx } from "../lib/trackEvent";
-import { ensureDiscountPool } from "./createPoolCodes";
+import { ensureDiscountPool, createShopifyDiscountCode } from "./createPoolCodes";
 import { sendReferralEventRow } from "../lib/googleSheets.server";
 
 const EXPIRY_HOURS = 72;
@@ -144,9 +144,34 @@ export async function activateDiscountFromPool({
   if (adminClient) {
     try {
       if (!isShopifyDiscountNodeGid(activatedCode.shopifyDiscountGid)) {
-        console.log(
-          `[activation] skipping Shopify update for ${activatedCode.code} (non-Shopify placeholder gid: ${activatedCode.shopifyDiscountGid})`,
-        );
+        // Placeholder code — create it in Shopify now so the /discount/CODE redirect works
+        const settings = await prisma.shopSettings.findUnique({
+          where: { shopId: toShopId },
+          select: { discountType: true, discountValue: true },
+        });
+        const discountKind = (settings?.discountType ?? "PERCENTAGE") as "PERCENTAGE" | "FIXED";
+        const rawValue = settings?.discountValue ? Number(settings.discountValue) : 10;
+        const discountValue =
+          discountKind === "PERCENTAGE" && rawValue <= 1 ? rawValue * 100 : rawValue;
+
+        const shopifyResult = await createShopifyDiscountCode({
+          adminClient,
+          code: activatedCode.code,
+          discountKind,
+          discountValue,
+          expiryHours,
+        });
+
+        await prisma.discountCode.update({
+          where: { id: activatedCode.id },
+          data: {
+            shopifyDiscountGid: shopifyResult.gid,
+            startsAt: shopifyResult.startsAt,
+            endsAt: shopifyResult.endsAt,
+          },
+        });
+
+        console.log(`[activation] created placeholder ${activatedCode.code} in Shopify (gid: ${shopifyResult.gid})`);
       } else {
         await updateShopifyDiscount(
           adminClient,
