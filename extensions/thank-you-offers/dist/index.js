@@ -1103,7 +1103,6 @@
         _(
           "s-box",
           {
-            border: "base",
             borderRadius: "base",
             background: "base",
             padding: "none",

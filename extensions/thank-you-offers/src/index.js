@@ -163,7 +163,6 @@ function OfferCard({
       h(
         's-box',
         {
-          border: 'base',
           borderRadius: 'base',
           background: 'base',
           padding: 'none',
