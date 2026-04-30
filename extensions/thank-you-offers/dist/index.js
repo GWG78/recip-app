@@ -1146,7 +1146,7 @@
         cardState === "revealed" ? _(
           "s-stack",
           { gap: "small" },
-          _("a", { href: redirectUrl, style: "display:block;width:100%;padding:12px 0;background:#2c6ecb;color:#fff;text-align:center;border-radius:4px;font-weight:600;text-decoration:none;box-sizing:border-box;font-size:14px;" }, "Shop now"),
+          _("s-button", { kind: "primary", href: redirectUrl, inlineSize: "fill" }, "Shop now"),
           _("s-text", { color: "subdued" }, "Code applied automatically at checkout")
         ) : null
       ) : null,
